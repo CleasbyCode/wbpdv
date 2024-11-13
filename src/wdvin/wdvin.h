@@ -12,8 +12,8 @@
 #include <vector>
 #include <iterator>
 
-#include <C:\Users\Nick\source\zlib-1.3.1\zlib.h>
-#include <C:\Users\Nick\source\zlib-1.3.1\decode.h>
+#include <zlib.h>
+#include <webp/decode.h> 
 
 #include "profilesVec.cpp"
 #include "valueUpdater.cpp"
