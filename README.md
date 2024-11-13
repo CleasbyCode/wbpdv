@@ -4,7 +4,7 @@
 
 Use CLI tools ***wdvin*** & ***wdvout*** with a WEBP image, to embed or extract any file, up to **9MB** (cover image + data file).  
 
-Share your "file-embedded" WEBP image on compatible sites, such as Mastodon & Tumblr.
+Share your "file-embedded" WEBP image on compatible sites, such as ***Mastodon*** & ***Tumblr***.
 
 ![Demo Image](https://github.com/CleasbyCode/wpdv/blob/main/demo_image/wpdv_19598.webp)  
 ***Image credit:*** [***@z3pio_***](https://x.com/z3pio_) / ***PIN: 1939020639***
