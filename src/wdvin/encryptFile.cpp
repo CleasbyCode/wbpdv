@@ -7,7 +7,7 @@ uint32_t encryptFile(std::vector<uint8_t>& Profile_Vec, std::vector<uint8_t>& Fi
 	constexpr uint8_t 
 		XOR_KEY_LENGTH = 234,
 		PIN_LENGTH = 4;
-
+	
 	uint16_t 
 		data_file_start_index = 0x37C,
 		profile_data_size = 854,
