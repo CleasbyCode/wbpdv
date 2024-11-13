@@ -1,6 +1,6 @@
 # wpdv 
 
-(Work in progress. Usable, but probably buggy).
+(***Work in progress. Usable, but probably buggy***).
 
 Use CLI tools ***wdvin*** & ***wdvout*** with a WEBP image, to embed or extract any file, up to **9MB** (cover image + data file).  
 
