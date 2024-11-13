@@ -34,7 +34,7 @@ int wdvIn(const std::string& IMAGE_FILENAME, std::string& data_filename) {
 
 	int width = 0, height = 0;
 
-	 // By attempting to retrive the image dimensions, we are also checking for a valid Webp image at the same time.
+	 // By attempting to retrieve the image dimensions, we are also checking for a valid Webp image at the same time.
     	if (!WebPGetInfo(Image_Vec.data(), Image_Vec.size(), &width, &height)) {
        	std::cerr << "Error: Not a valid Webp image." << std::endl;
         	return 1;
