@@ -6,8 +6,8 @@ Use CLI tools ***wdvin*** & ***wdvout*** with a WEBP image, to embed or extract 
 
 Share your "file-embedded" WEBP image on compatible sites, such as ***Mastodon*** & ***Tumblr***.
 
-![Demo Image](https://github.com/CleasbyCode/wpdv/blob/main/demo_image/wpdv_19598.webp)  
-***Image credit:*** [***@z3pio_***](https://x.com/z3pio_) / ***PIN: 1939020639***
+![Demo Image](https://github.com/CleasbyCode/wpdv/blob/main/demo_image/wpdv_99489.webp)  
+***Image credit:*** [***𝑮𝒐𝒐𝒅 𝑪𝒉𝒐𝒐𝒔𝒆𝒏𝒐𝒐𝒏 @_o__o_l*](https://x.com/_o__o_l) / ***PIN: 3573503118***
 
 Your embedded file is ***compressed*** and ***encrypted*** with ***PIN*** protection.  
 
