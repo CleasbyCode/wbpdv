@@ -11,7 +11,7 @@ Share your "file-embedded" WEBP image on compatible sites, such as ***Mastodon**
 
 Your embedded file is ***compressed*** and ***encrypted*** with ***PIN*** protection.  
 
-## Usage (Linux - jdvin)
+## Usage (Linux - wdvin)
 
 ```console
 
