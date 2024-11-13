@@ -1,11 +1,13 @@
-# wpdv (Work in progress. Usable, but probably buggy).
+# wpdv 
+
+(Work in progress. Usable, but probably buggy).
 
 Use CLI tools ***wdvin*** & ***wdvout*** with a WEBP image, to embed or extract any file, up to **9MB** (cover image + data file).  
 
 Share your "file-embedded" WEBP image on compatible sites, such as Mastodon & Tumblr.
 
 ![Demo Image](https://github.com/CleasbyCode/jdvrif/blob/main/demo_image/jrif_47681.jpg)  
-***Image credit:*** [***@rdc768***](https://x.com/rdc768) / ***PIN: 3137056693***
+***Image credit:*** [***@z3pio_***](https://x.com/z3pio_) / ***PIN: 3137056693***
 
 Your embedded file is ***compressed*** and ***encrypted*** with ***PIN*** protection.  
 
@@ -21,9 +23,9 @@ user1@linuxbox:~/Desktop$ wdvin
 Usage: wdvin <cover_image> <data_file>  
        wdvin --info
 
-user1@linuxbox:~/Desktop$ wdvin Cover_Image.jpg Hidden_File.zip
+user1@linuxbox:~/Desktop$ wdvin Cover_Image.webp Hidden_File.zip
   
-Saved "file-embedded" WEBP image: wpdv_12462.jpg (143029 bytes).
+Saved "file-embedded" WEBP image: wpdv_12462.webp (143029 bytes).
 
 Recovery PIN: [***2166776980***]
 
@@ -44,7 +46,7 @@ user1@linuxbox:~/Desktop$ wdvout
 Usage: wdvout <file_embedded_image>
        wdvout --info
         
-user1@linuxbox:~/Desktop$ wdvout wpdv_12462.jpg
+user1@linuxbox:~/Desktop$ wdvout wpdv_12462.webp
 
 PIN: **********
 
