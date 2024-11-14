@@ -55,8 +55,7 @@ Extracted hidden file: Hidden_File.zip (6165 bytes).
 Complete! Please check your file.
 
 ```
-
-https://github.com/user-attachments/assets/350dea58-c1b7-4987-8116-dff4a9ca64d5  
+https://github.com/user-attachments/assets/76e74a80-e16a-489e-b066-24b0f747cc92
 
 You can try [***wpdv Web App***](https://cleasbycode.co.uk/wpdv/index/) if you don't want to download and compile the source code.  
 
