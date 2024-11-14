@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <fstream>
 #include <regex>
-#include <set>
 #include <iostream>
 #include <string>
 #include <vector>
