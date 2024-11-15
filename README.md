@@ -11,7 +11,7 @@ Share your "file-embedded" WEBP image on compatible sites, such as ***Mastodon**
 
 Your embedded file is ***compressed*** and ***encrypted*** with ***PIN*** protection.  
 
-## Usage (Linux - wdvin)
+## Usage (Linux - wdvin / wdvout)
 
 ```console
 
@@ -33,11 +33,6 @@ Important: Please remember to keep your PIN safe, so that you can extract the hi
 
 Complete!
 
-```
-## Usage (Linux - wdvout)
-
-```console
-
 user1@linuxbox:~/Downloads/wpdv-main/src/wdvout$ g++ main.cpp -O2 -lz -s -o wdvout
 user1@linuxbox:~/Downloads/wdpv-main/src/wdvout$ sudo cp wdvout /usr/bin
 
@@ -53,7 +48,6 @@ PIN: **********
 Extracted hidden file: Hidden_File.zip (6165 bytes).
 
 Complete! Please check your file.
-
 ```
 https://github.com/user-attachments/assets/76e74a80-e16a-489e-b066-24b0f747cc92
 
