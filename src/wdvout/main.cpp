@@ -1,4 +1,4 @@
-//	WEBP Data Vehicle (wdvout v1.0) Created by Nicholas Cleasby (@CleasbyCode) 13/11/2024
+//	WEBP Data Vehicle (wdvout v1.1) Created by Nicholas Cleasby (@CleasbyCode) 13/11/2024
 //
 //	To compile program (Linux):
 // 	$ g++ main.cpp -O2 -lz -s -o wdvout
