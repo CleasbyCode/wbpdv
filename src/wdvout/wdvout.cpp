@@ -22,18 +22,22 @@ int wdvOut(const std::string& IMAGE_FILENAME) {
 	constexpr uint8_t
 		WDV_SIG[]	{ 0xB4, 0x77, 0x3E, 0xEA, 0x5E, 0x9D, 0xF9 },
 		PROFILE_SIG[] 	{ 0x6D, 0x6E, 0x74, 0x72, 0x52, 0x47, 0x42 },
+		DATA_FILE_SIZE_INDEX = 0x90,
 		INDEX_DIFF = 8;
 				
 	const uint32_t 
 		WDV_SIG_INDEX 	= searchFunc(Image_Vec, 0, 0, WDV_SIG),
-		PROFILE_SIG_INDEX = searchFunc(Image_Vec, 0, 0, PROFILE_SIG);
+		PROFILE_SIG_INDEX = searchFunc(Image_Vec, 0, 0, PROFILE_SIG),
+		DATA_FILE_SIZE = getByteValue(Image_Vec, DATA_FILE_SIZE_INDEX);
 		
 	if (WDV_SIG_INDEX == Image_Vec.size()) {
 		std::cerr << "\nImage File Error: Signature check failure. This is not a valid wpdv file-embedded image.\n\n";
 		return 1;
 	}
 	
-	uint8_t extract_success_byte_val = Image_Vec[WDV_SIG_INDEX + INDEX_DIFF - 1];
+	uint8_t 
+		byte_check = Image_Vec[DATA_FILE_SIZE_INDEX + 4],
+		extract_success_byte_val = Image_Vec[WDV_SIG_INDEX + INDEX_DIFF - 1];
 	
 	// Remove WEBP header and the ICCP Profile header. 
 	// Vector now contains color profile data, encrypted/compressed data file and cover image data.
@@ -46,7 +50,9 @@ int wdvOut(const std::string& IMAGE_FILENAME) {
 	
 	const uint32_t INFLATED_FILE_SIZE = inflateFile(Decrypted_File_Vec);
 
-	if (Decrypted_File_Vec.empty()) {	
+	bool isInflateFailure = Decrypted_File_Vec.empty() || INFLATED_FILE_SIZE != DATA_FILE_SIZE || byte_check != DECRYPTED_FILENAME[0];
+
+	if (isInflateFailure) {	
 		std::fstream file(IMAGE_FILENAME, std::ios::in | std::ios::out | std::ios::binary);
 		std::streampos failure_index = WDV_SIG_INDEX + INDEX_DIFF - 1;
 
@@ -57,7 +63,7 @@ int wdvOut(const std::string& IMAGE_FILENAME) {
 
 		byte = byte == 0x90 ? 0 : ++byte;
 		
-		if (byte > 3) {
+		if (byte > 2) {
 			file.close();
 			std::ofstream file(IMAGE_FILENAME, std::ios::out | std::ios::trunc | std::ios::binary);
 		} else {
@@ -67,7 +73,7 @@ int wdvOut(const std::string& IMAGE_FILENAME) {
 
 		file.close();
 
-		std::cerr << "\nFile Error: Invalid recovery PIN or file is corrupt.\n\n";
+		std::cerr << "\nFile Recovery Error: Invalid PIN or file is corrupt.\n\n";
 		return 1;
 	}
 
