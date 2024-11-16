@@ -34,7 +34,7 @@ int wdvIn(const std::string& IMAGE_FILENAME, std::string& data_filename) {
 
 	int width = 0, height = 0;
 
-	 // By attempting to retrieve the image dimensions, we are also checking for a valid Webp image at the same time.
+	 // By attempting to retrive the image dimensions, we are also checking for a valid Webp image at the same time.
     	if (!WebPGetInfo(Image_Vec.data(), Image_Vec.size(), &width, &height)) {
        	std::cerr << "Error: Not a valid Webp image." << std::endl;
         	return 1;
@@ -46,25 +46,21 @@ int wdvIn(const std::string& IMAGE_FILENAME, std::string& data_filename) {
 		
 	if (Image_Vec[WEBP_EXTENDED_INDEX] == 'X') {
 		constexpr uint8_t 
-			WEBP_LL_SIG[] 	{ 0x56, 0x50, 0x38, 0x4C},
-			WEBP_LY_SIG[]	{ 0x56, 0x50, 0x38, 0x20},
-			WEBP_AN_SIG[]	{ 0x41, 0x4E, 0x49, 0x4D},
+			VPCHUNK_SIG[] 	{ 0x56, 0x50, 0x38},
+			ANIM_SIG[]	{ 0x41, 0x4E, 0x49, 0x4D},
 			EXIF_SIG[]	{ 0x45, 0x58, 0x49, 0x46},
 			XMP_SIG[]	{ 0x58, 0x4D, 0x50, 0x20};
 
 		const uint32_t 
-			WEBP_AN_SIG_INDEX = searchFunc(Image_Vec, 0, 0, WEBP_AN_SIG),
-			WEBP_LL_SIG_INDEX = searchFunc(Image_Vec, 0, 0, WEBP_LL_SIG),
-			WEBP_LY_SIG_INDEX = searchFunc(Image_Vec, 0, 0, WEBP_LY_SIG),	
-			XMP_SIG_INDEX = searchFunc(Image_Vec, 0, 0, XMP_SIG),
-			WEBP_CHUNK_POS  = std::min(WEBP_LL_SIG_INDEX, WEBP_LY_SIG_INDEX);
+			ANIM_SIG_INDEX = searchFunc(Image_Vec, 0, 0, ANIM_SIG),
+			VPCHUNK_SIG_INDEX = searchFunc(Image_Vec, WEBP_EXTENDED_INDEX, 0, VPCHUNK_SIG),
+			XMP_SIG_INDEX = searchFunc(Image_Vec, 0, 0, XMP_SIG);
 
-		if (WEBP_AN_SIG_INDEX != Image_Vec.size()) {
+		if (ANIM_SIG_INDEX != Image_Vec.size()) {
 		 	std::cerr << "\nImage File Error: Webp animation image files not supported.\n\n";
 			return 1;
 		}
 
-		// Erase chunks in the order of last to first.
 		if (XMP_SIG_INDEX != Image_Vec.size()) {	
 			Image_Vec.erase(Image_Vec.begin() + XMP_SIG_INDEX, Image_Vec.end());
 		}
@@ -75,11 +71,11 @@ int wdvIn(const std::string& IMAGE_FILENAME, std::string& data_filename) {
 			Image_Vec.erase(Image_Vec.begin() + EXIF_SIG_INDEX, Image_Vec.end());
 		}
 		
-		// Erase x bytes from start of image file until start of image chunk, removes chunks like ICCP...
-		Image_Vec.erase(Image_Vec.begin(), Image_Vec.begin() + WEBP_CHUNK_POS);
+		// Erase n bytes from start of image file until start of image VP8 chunk, removes extended header and chunks like ICCP.
+		Image_Vec.erase(Image_Vec.begin(), Image_Vec.begin() + VPCHUNK_SIG_INDEX);
 		
 	} else {
-		// Erase 12 byte header.
+		// No extended header, so just erase 12 byte default header.
 	 	Image_Vec.erase(Image_Vec.begin(), Image_Vec.begin() + WEBP_HEADER_LENGTH);
 	}
 
@@ -87,10 +83,15 @@ int wdvIn(const std::string& IMAGE_FILENAME, std::string& data_filename) {
 	uint8_t 
 		width_index = 0x19,
 		height_index = 0x1C,
+		data_file_size_index = 0x90,
 		value_bit_length = 16;
 
 	valueUpdater(Profile_Vec, width_index, width - 1, value_bit_length, false);
 	valueUpdater(Profile_Vec, height_index, height - 1, value_bit_length, false);
+
+	value_bit_length = 32;
+
+	valueUpdater(Profile_Vec, data_file_size_index, static_cast<uint32_t>(DATA_FILE_SIZE), value_bit_length, true);
 
 	std::filesystem::path filePath(data_filename);
     	data_filename = filePath.filename().string();
@@ -105,7 +106,7 @@ int wdvIn(const std::string& IMAGE_FILENAME, std::string& data_filename) {
 	}
 
 	constexpr uint16_t DATA_FILENAME_LENGTH_INDEX = 0x35A;
-
+	
 	Profile_Vec[DATA_FILENAME_LENGTH_INDEX] = DATA_FILENAME_LENGTH;
 
 	std::vector<uint8_t> File_Vec;
@@ -116,6 +117,8 @@ int wdvIn(const std::string& IMAGE_FILENAME, std::string& data_filename) {
 
 	std::reverse(File_Vec.begin(), File_Vec.end());
 	
+	Profile_Vec[data_file_size_index + 4] = data_filename[0];
+
 	uint32_t file_vec_size = deflateFile(File_Vec);
 	
 	if (File_Vec.empty()) {
