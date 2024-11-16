@@ -1,12 +1,12 @@
-# wpdv 
+# wbpdv 
 
 (***Work in progress. Usable, but probably buggy***).
 
-Use CLI tools ***wdvin*** & ***wdvout*** with a WEBP image, to embed or extract any file, up to **9MB** (cover image + data file).  
+Use CLI tools ***wbpin*** & ***wbpout*** with a WEBP image, to embed or extract any file, up to **9MB** (cover image + data file).  
 
 Share your "file-embedded" WEBP image on compatible sites, such as ***Mastodon*** & ***Tumblr***.
 
-![Demo Image](https://github.com/CleasbyCode/wpdv/blob/main/demo_image/wpdv_99489.webp)  
+![Demo Image](https://github.com/CleasbyCode/wbpdv/blob/main/demo_image/wpdv_99489.webp)  
 ***Image credit:*** [***𝑮𝒐𝒐𝒅 𝑪𝒉𝒐𝒐𝒔𝒆𝒏𝒐𝒐𝒏 (@_o__o_l)***](https://x.com/_o__o_l) / ***PIN: 3573503118***
 
 Your embedded file is ***compressed*** and ***encrypted*** with ***PIN*** protection.  
