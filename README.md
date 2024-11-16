@@ -11,21 +11,21 @@ Share your "file-embedded" WEBP image on compatible sites, such as ***Mastodon**
 
 Your embedded file is ***compressed*** and ***encrypted*** with ***PIN*** protection.  
 
-## Usage (Linux - wdvin / wdvout)
+## Usage (Linux - wbpin / wbpout)
 
 ```console
 
-user1@linuxbox:~/Downloads/wpdv-main/src/wdvin$ g++ main.cpp -O2 -lz -lwebp -s -o wdvin
-user1@linuxbox:~/Downloads/wpdv-main/src/wdvin$ sudo cp wdvin /usr/bin
+user1@linuxbox:~/Downloads/wbpdv-main/src/wbpin$ g++ main.cpp -O2 -lz -lwebp -s -o wbpin
+user1@linuxbox:~/Downloads/wbpdv-main/src/wbpin$ sudo cp wbpin /usr/bin
 
-user1@linuxbox:~/Desktop$ wdvin 
+user1@linuxbox:~/Desktop$ wbpin 
 
-Usage: wdvin <cover_image> <data_file>  
-       wdvin --info
+Usage: wbpin <cover_image> <data_file>  
+       wbpin --info
 
-user1@linuxbox:~/Desktop$ wdvin Cover_Image.webp Hidden_File.zip
+user1@linuxbox:~/Desktop$ wbpin Cover_Image.webp Hidden_File.zip
   
-Saved "file-embedded" WEBP image: wpdv_12462.webp (143029 bytes).
+Saved "file-embedded" WEBP image: wbpdv_12462.webp (143029 bytes).
 
 Recovery PIN: [***2166776980***]
 
@@ -33,15 +33,15 @@ Important: Please remember to keep your PIN safe, so that you can extract the hi
 
 Complete!
 
-user1@linuxbox:~/Downloads/wpdv-main/src/wdvout$ g++ main.cpp -O2 -lz -s -o wdvout
-user1@linuxbox:~/Downloads/wdpv-main/src/wdvout$ sudo cp wdvout /usr/bin
+user1@linuxbox:~/Downloads/wbpdv-main/src/wbpout$ g++ main.cpp -O2 -lz -s -o wbpout
+user1@linuxbox:~/Downloads/wbpdv-main/src/wbpout$ sudo cp wbpout /usr/bin
 
-user1@linuxbox:~/Desktop$ wdvout
+user1@linuxbox:~/Desktop$ wbpout
 
-Usage: wdvout <file_embedded_image>
-       wdvout --info
+Usage: wbpout <file_embedded_image>
+       wbpout --info
         
-user1@linuxbox:~/Desktop$ wdvout wpdv_12462.webp
+user1@linuxbox:~/Desktop$ wbpout wbpdv_12462.webp
 
 PIN: **********
 
@@ -53,7 +53,7 @@ https://github.com/user-attachments/assets/76e74a80-e16a-489e-b066-24b0f747cc92
 
 https://github.com/user-attachments/assets/fc18fc85-872c-44bd-881e-b2ff83a602c3  
 
-You can try [***wpdv Web App***](https://cleasbycode.co.uk/wpdv/index/) if you don't want to download and compile the source code.  
+You can try [***wbpdv Web App***](https://cleasbycode.co.uk/wbpdv/index/) if you don't want to download and compile the source code.  
 
 https://github.com/user-attachments/assets/7edab77e-14ed-4ddc-b1b6-8a4f74fd9d40
 
