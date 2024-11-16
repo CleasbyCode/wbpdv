@@ -1,4 +1,4 @@
-//	Webp Data Vehicle (wdvin v1.0) Created by Nicholas Cleasby (@CleasbyCode) 12/11/2024
+//	Webp Data Vehicle (wdvin v1.1) Created by Nicholas Cleasby (@CleasbyCode) 12/11/2024
 //
 //	To compile program (Linux):
 // 	$ g++ main.cpp -O2 -lz -lwebp -s -o wdvin
