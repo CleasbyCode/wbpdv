@@ -1,7 +1,7 @@
 void displayInfo() {
 	std::cout << R"(
 
-WEBP Data Vehicle (wdvin v1.0). 
+WEBP Data Vehicle (wdvin v1.1). 
 Created by Nicholas Cleasby (@CleasbyCode) 13/11/2024.
 
 wdvin is a data-hiding / steganography-like CLI tool for concealing any file type within a WEBP image. 
