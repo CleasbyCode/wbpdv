@@ -11,7 +11,6 @@ uint32_t encryptFile(std::vector<uint8_t>& Profile_Vec, std::vector<uint8_t>& Fi
 		PIN_LENGTH = 9;
 
 	uint16_t 
-		// data_file_start_index = 0x37C,
 		profile_data_size = 854,
 		deflate_file_size_index = 0x36F,
 		data_filename_index = 0x35B,
