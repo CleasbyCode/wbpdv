@@ -37,7 +37,7 @@ uint32_t
 bool writeFile(std::vector<uint8_t>&);
 
 void
-	valueUpdater(std::vector<uint8_t>&, uint32_t, const uint32_t, uint8_t),
+	valueUpdater(std::vector<uint8_t>&, uint32_t, const uint32_t, uint8_t, bool),
 	displayInfo();
 
 int wbpIn(const std::string&, std::string&);
