@@ -9,6 +9,8 @@ Share your "file-embedded" WEBP image on compatible sites, such as ***Mastodon**
 
 Your embedded file is ***compressed*** and ***encrypted*** with ***PIN*** protection.  
 
+(*You can try the [***wbpdv Web App, here,***](https://cleasbycode.co.uk/wbpdv/index/) if you don't want to download and compile the source code.*)
+
 ## Usage (Linux - wbpin / wbpout)
 
 ```console
