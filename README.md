@@ -63,7 +63,7 @@ This project makes use of the following third-party libraries:
   - License: zlib/libpng license (see [***LICENSE***](https://github.com/madler/zlib/blob/develop/LICENSE) file)
   - Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler
     
-- **Library Name**: WebP
+- **WebP**: Image processing library, developed by Google.
    - **Copyright**: Copyright 2010 Google Inc.
    - **License**: BSD 3-Clause License (see [***LICENSE***](https://github.com/webmproject/libwebp?tab=BSD-3-Clause-1-ov-file#readme) file for details)    
 ##
