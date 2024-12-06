@@ -15,7 +15,9 @@
 #include <zlib.h>
 // Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler
 
+// https://github.com/webmproject/libwebp
 #include <webp/decode.h>
+// Copyright 2010 Google Inc.
 
 #include "profilesVec.cpp"
 #include "valueUpdater.cpp"
