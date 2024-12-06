@@ -57,12 +57,15 @@ https://github.com/user-attachments/assets/7edab77e-14ed-4ddc-b1b6-8a4f74fd9d40
 
 ## Third-Party Libraries
 
-This project makes use of the following third-party library:
+This project makes use of the following third-party libraries:
 
 - **zlib**: General-purpose compression library
   - License: zlib/libpng license (see [***LICENSE***](https://github.com/madler/zlib/blob/develop/LICENSE) file)
   - Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler
     
+- **Library Name**: WebP
+   - **Copyright**: Copyright 2010 Google Inc.
+   - **License**: BSD 3-Clause License (see [***LICENSE***](https://github.com/webmproject/libwebp?tab=BSD-3-Clause-1-ov-file#readme) file for details)    
 ##
 
 
