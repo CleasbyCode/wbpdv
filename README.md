@@ -55,13 +55,14 @@ https://github.com/user-attachments/assets/fc18fc85-872c-44bd-881e-b2ff83a602c3
 
 https://github.com/user-attachments/assets/7edab77e-14ed-4ddc-b1b6-8a4f74fd9d40
 
-My other programs you may find useful:-  
+## Third-Party Libraries
 
-* [pdvzip: CLI tool to embed a ZIP file within a tweetable and "executable" PNG-ZIP polyglot image.](https://github.com/CleasbyCode/pdvzip)
-* [imgprmt: CLI tool to embed an image prompt (e.g. "Midjourney") within a tweetable JPG-HTML polyglot image.](https://github.com/CleasbyCode/imgprmt)
-* [pdvrdt: CLI tool to encrypt, compress & embed any file type within a PNG image.](https://github.com/CleasbyCode/pdvrdt)
-* [pdvps: PowerShell / C++ CLI tool to encrypt & embed any file type within a tweetable and "executable" PNG image](https://github.com/CleasbyCode/pdvps)   
+This project makes use of the following third-party library:
 
+- **zlib**: General-purpose compression library
+  - License: zlib/libpng license (see [***LICENSE***](https://github.com/madler/zlib/blob/develop/LICENSE) file)
+  - Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler
+    
 ##
 
 
