@@ -1,6 +1,6 @@
 # wbpdv 
 
-Use CLI tools ***wbpin*** & ***wbpout*** with a WEBP image, to embed or extract any file, up to **9MB** (cover image + data file).  
+Use CLI tools ***wbpin*** & ***wbpout*** with a WEBP image, to hide/extract any file, up to **9MB** (cover image + data file).  
 
 Share your "file-embedded" WEBP image on compatible sites, such as ***Mastodon*** & ***Tumblr***.
 
