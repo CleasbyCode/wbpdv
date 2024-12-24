@@ -53,7 +53,6 @@ Complete! Please check your file.
 
 https://github.com/user-attachments/assets/795709bb-6b00-4924-9597-61cc27b65bee
 
-https://github.com/user-attachments/assets/fc18fc85-872c-44bd-881e-b2ff83a602c3  
 
 https://github.com/user-attachments/assets/7edab77e-14ed-4ddc-b1b6-8a4f74fd9d40
 
