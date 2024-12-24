@@ -5,7 +5,7 @@ Use CLI tools ***wbpin*** & ***wbpout*** with a WEBP image, to hide/extract any 
 Share your "file-embedded" WEBP image on compatible sites, such as ***Mastodon*** & ***Tumblr***.
 
 ![Demo Image](https://github.com/CleasbyCode/wbpdv/blob/main/demo_image/wbpdv_54855.webp)  
-***Image credit:*** [***@TonyKelner)***](https://x.com/TonyKelner) / ***PIN: 3168166896***
+***Image credit:*** [***@TonyKelner***](https://x.com/TonyKelner) / ***PIN: 3168166896***
 
 Your embedded file is ***compressed*** and ***encrypted*** with ***PIN*** protection.  
 
