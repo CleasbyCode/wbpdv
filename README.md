@@ -1,6 +1,6 @@
 # wbpdv 
 
-Use CLI tools ***wbpin*** & ***wbpout*** with a WEBP image, to hide/extract any file type, up to **9MB** (cover image + data file).  
+A *"steganography-like"* command-line utility consisting of two CLI tools, ***wbpin***, *used for embedding a data file within a ***WEBP*** cover image*, and ***wbpout***, *used for extracting the hidden file from the cover image.*  
 
 Share your "file-embedded" WEBP image on compatible sites, such as ***Mastodon*** & ***Tumblr***.
 
