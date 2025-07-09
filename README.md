@@ -2,7 +2,7 @@
 
 A *"steganography-like"* command-line utility consisting of two CLI tools, ***wbpin***, *used for embedding a data file within a ***WEBP*** cover image*, and ***wbpout***, *used for extracting the hidden file from the cover image.*  
 
-Share your "file-embedded" WEBP image on compatible sites, such as ***Mastodon*** & ***Tumblr***.
+*There is also a ***wbpdv Web App***, which you can try [***here***](https://cleasbycode.co.uk/wbpdv/index/) as a convenient alternative to downloading and compiling the CLI source code.*    
 
 ![Demo Image](https://github.com/CleasbyCode/wbpdv/blob/main/demo_image/wbpdv_34225.webp)  
 ***Image credit:*** [***@TonyKelner***](https://x.com/TonyKelner) / ***PIN: 1439711818***
