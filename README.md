@@ -9,7 +9,10 @@ A *"steganography-like"* command-line utility consisting of two CLI tools, ***wb
 
 Your embedded file is ***compressed*** and ***encrypted*** with ***PIN*** protection.  
 
-(*You can try the [***wbpdv Web App, here,***](https://cleasbycode.co.uk/wbpdv/index/) if you don't want to download and compile the CLI source code.*)
+## Compatible Platforms
+*Posting size limit measured by the combined size of the cover image + compressed data file:*  
+
+● ***Mastodon*** & ***Tumblr*** (**9MB**).  
 
 ## Usage (Linux - wbpin / wbpout)
 
