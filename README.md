@@ -14,43 +14,43 @@ Your embedded file is ***compressed*** and ***encrypted*** with ***PIN*** protec
 
 ● ***Mastodon*** & ***Tumblr*** (**9MB**).  
 
-## Usage (Linux - wbpin / wbpout)
+## Usage (Linux)
 
 ```console
+Note: Compiler support for C++23 required.
 
-user1@linuxbox:~/Downloads/wbpdv-main/src/wbpin$ g++ main.cpp -O2 -lz -lwebp -s -o wbpin
-user1@linuxbox:~/Downloads/wbpdv-main/src/wbpin$ sudo cp wbpin /usr/bin
+$ sudo apt libsodium-dev zlib1g-dev libwebp-dev
+$ chmod +x compile_wbpdv.sh
+$ ./compile_wbpdv.sh
 
-user1@linuxbox:~/Desktop$ wbpin 
+Compiling wbpdv...
+Compilation successful. Executable 'wbpdv' created.
 
-Usage: wbpin <cover_image> <data_file>  
-       wbpin --info
+$ sudo cp wbpdv /usr/bin
+$ wbpdv
 
-user1@linuxbox:~/Desktop$ wbpin Cover_Image.webp Hidden_File.zip
-  
-Saved "file-embedded" WEBP image: wbpdv_12462.webp (143029 bytes).
+Usage: wbpdv conceal [-b] <cover_image> <secret_file>
+       wbpdv recover <cover_image>  
+       wbpdv --info
 
-Recovery PIN: [***2166776980***]
+$ wbpdv conceal your_cover_image.webp your_secret_file.doc
+   
+Saved "file-embedded" WEBP image: wbpdv_129462.webp (143029 bytes).
 
-Important: Please remember to keep your PIN safe, so that you can extract the hidden file.
+Recovery PIN: [***2166776980318349924***]
+
+Important: Keep your PIN safe, so that you can extract the hidden file.
 
 Complete!
-
-user1@linuxbox:~/Downloads/wbpdv-main/src/wbpout$ g++ main.cpp -O2 -lz -s -o wbpout
-user1@linuxbox:~/Downloads/wbpdv-main/src/wbpout$ sudo cp wbpout /usr/bin
-
-user1@linuxbox:~/Desktop$ wbpout
-
-Usage: wbpout <file_embedded_image>
-       wbpout --info
         
-user1@linuxbox:~/Desktop$ wbpout wbpdv_12462.webp
+$ wbpdv recover wbpdv_129462.webp
 
-PIN: **********
+PIN: *******************
 
-Extracted hidden file: Hidden_File.zip (6165 bytes).
+Extracted hidden file: your_secret_file.doc (6165 bytes).
 
 Complete! Please check your file.
+
 ```
 
 
