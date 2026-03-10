@@ -7,19 +7,18 @@ There is also a [***Web edition***](https://cleasbycode.co.uk/wbpdv/app/), which
 ![Demo Image](https://github.com/CleasbyCode/wbpdv/blob/main/demo_image/wbpdv_34225.webp)  
 ***Image credit:*** [***@TonyKelner***](https://x.com/TonyKelner) / ***PIN: 1439711818***
 
-Your embedded file is ***compressed*** and ***encrypted*** with ***PIN*** protection.  
+Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** hides files within ***application segments*** of a ***WEBP*** image. 
 
-## Compatible Platforms
-*Posting size limit measured by the combined size of the cover image + compressed data file:*  
+You can conceal any file type up to ***2GB***, although compatible sites (*listed below*) have their own ***much smaller*** size limits and *other requirements.  
 
-● ***Mastodon*** & ***Tumblr*** (**9MB**).  
+For increased storage capacity and better security, your embedded data file is compressed with ***zlib*** and encrypted using the ***libsodium*** cryptographic library.  
 
 ## Usage (Linux)
 
 ```console
 Note: Compiler support for C++23 required.
 
-$ sudo apt libsodium-dev zlib1g-dev libwebp-dev
+$ sudo apt install libsodium-dev zlib1g-dev libwebp-dev
 $ chmod +x compile_wbpdv.sh
 $ ./compile_wbpdv.sh
 
@@ -52,22 +51,51 @@ Extracted hidden file: your_secret_file.doc (6165 bytes).
 Complete! Please check your file.
 
 ```
+## Compatible Platforms
+*Posting size limit measured by the combined size of the cover image + compressed data file:*  
 
+● ***Mastodon*** (**16MB**), ***Tumblr*** (**9MB**), ***Bluesky*** (**~1MB** | ***-b option***).
 
 https://github.com/user-attachments/assets/795709bb-6b00-4924-9597-61cc27b65bee
 
-
 https://github.com/user-attachments/assets/078ec4cf-36ab-4c85-a8dd-9b9a41a98889
 
+wbpdv ***mode*** arguments:
+ 
+  ***conceal*** - Compresses, encrypts and embeds your secret data file within a ***WEBP*** cover image.  
+  ***recover*** - Decrypts, uncompresses and extracts the concealed data file from a ***WEBP*** cover image.
+ 
+wbpdv ***conceal*** mode ***platform*** options:
+ 
+  "***-b***" To create compatible "*file-embedded*" ***WEBP*** images for posting on the ***Bluesky*** platform, you must use the ***-b*** option with ***conceal*** mode.
+  ```console
+  $ wbpdv conceal -b my_image.webp hidden.doc
+  ```
+  These images are only compatible for posting on ***Bluesky***. Your embedded data file will be removed if posted on a different platform.
+ 
+  You are also required to use the Python script ***"bsky_post.py"*** (found in the repo ***src*** folder) to post the image to ***Bluesky***.
+  It will not work if you post images to ***Bluesky*** via the browser site or mobile app.  
+
+  To use the script, you will need to create an [***app password***](https://bsky.app/settings/app-passwords) from your ***Bluesky*** account.  
+
+  Here are some basic usage examples for the ***bsky_post.py*** script.  
+
+  Standard image post to your bsky profile:
+
+  ```console
+  $ python3 bsky_post.py --handle you.bsky.social --password xxxx-xxxx-xxxx-xxxx --image your_image.webp --alt-text "alt-text here (optional)" "standard post text here (required)"
+  ```
 
 ## Third-Party Libraries
 
 This project makes use of the following third-party libraries:
 
+- **libsodium**: For cryptographic functions.
+  - [**LICENSE**](https://github.com/jedisct1/libsodium/blob/master/LICENSE)
+  - Copyright (C) 2013-2025 Frank Denis (github@pureftpd.org)
 - **zlib**: General-purpose compression library
   - License: zlib/libpng license (see [***LICENSE***](https://github.com/madler/zlib/blob/develop/LICENSE) file)
   - Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler
-    
 - **WebP**: Image processing library, developed by Google.
    - **Copyright**: Copyright 2010 Google Inc.
    - **License**: BSD 3-Clause License (see [***LICENSE***](https://github.com/webmproject/libwebp?tab=BSD-3-Clause-1-ov-file#readme) file for details)    
