@@ -56,10 +56,6 @@ Complete! Please check your file.
 
 ● ***Mastodon*** (**16MB**), ***Tumblr*** (**9MB**), ***Bluesky*** (**~1MB** | ***-b option***).
 
-https://github.com/user-attachments/assets/795709bb-6b00-4924-9597-61cc27b65bee
-
-https://github.com/user-attachments/assets/078ec4cf-36ab-4c85-a8dd-9b9a41a98889
-
 wbpdv ***mode*** arguments:
  
   ***conceal*** - Compresses, encrypts and embeds your secret data file within a ***WEBP*** cover image.  
