@@ -9,7 +9,7 @@ There is also a [***Web edition***](https://cleasbycode.co.uk/wbpdv/app/), which
 
 Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** hides files within ***application segments*** of a ***WEBP*** image. 
 
-You can conceal any file type up to ***2GB***, although compatible sites (*listed below*) have their own ***much smaller*** size limits and *other requirements.  
+You can conceal any file type up to ***1GB***, although compatible sites (*listed below*) have their own ***much smaller*** size limits and *other requirements.  
 
 For increased storage capacity and better security, your embedded data file is compressed with ***zlib*** and encrypted using the ***libsodium*** cryptographic library.  
 
