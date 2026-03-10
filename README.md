@@ -69,7 +69,7 @@ wbpdv ***conceal*** mode ***platform*** options:
   ```
   These images are only compatible for posting on ***Bluesky***. Your embedded data file will be removed if posted on a different platform.
  
-  You are also required to use the Python script ***"bsky_post.py"*** (found in the repo ***src*** folder) to post the image to ***Bluesky***.
+  You are also required to use the Python script ***"bsky_post.py"*** (*found in the repo ***src*** folder*) to post the image to ***Bluesky***.
   It will not work if you post images to ***Bluesky*** via the browser site or mobile app.  
 
   To use the script, you will need to create an [***app password***](https://bsky.app/settings/app-passwords) from your ***Bluesky*** account.  
