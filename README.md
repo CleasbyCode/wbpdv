@@ -4,8 +4,8 @@
 
 There is also a [***Web edition***](https://cleasbycode.co.uk/wbpdv/app/), which you can use immediately, as a convenient alternative to downloading and compiling the CLI source code.
 
-![Demo Image](https://github.com/CleasbyCode/wbpdv/blob/main/demo_image/wbpdv_34225.webp)  
-***Image credit:*** [***@TonyKelner***](https://x.com/TonyKelner) / ***PIN: 1439711818***
+![Demo Image](https://github.com/CleasbyCode/wbpdv/blob/main/demo_image/wbpdv_180552.webp)  
+***Image credit:*** [***@blackowl777***](https://x.com/blackowl777) / ***PIN: 7438463291507255314***
 
 Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** hides files within ***application segments*** of a ***WEBP*** image. 
 
