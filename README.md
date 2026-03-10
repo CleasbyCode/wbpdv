@@ -1,8 +1,8 @@
 # wbpdv 
 
-A *"steganography-like"* command-line utility consisting of two CLI tools, ***wbpin***, *used for embedding a data file within a ***WEBP*** cover image*, and ***wbpout***, *used for extracting the hidden file from the cover image.*  
+***wbpdv*** is a fast, easy-to-use steganography command-line tool for concealing and extracting any file type via a **WEBP** image.  
 
-*There is also a ***wbpdv Web App***, which you can try [***here***](https://cleasbycode.co.uk/wbpdv/index/) as a convenient alternative to downloading and compiling the CLI source code.*    
+There is also a [***Web edition***](https://cleasbycode.co.uk/wbpdv/app/), which you can use immediately, as a convenient alternative to downloading and compiling the CLI source code.
 
 ![Demo Image](https://github.com/CleasbyCode/wbpdv/blob/main/demo_image/wbpdv_34225.webp)  
 ***Image credit:*** [***@TonyKelner***](https://x.com/TonyKelner) / ***PIN: 1439711818***
