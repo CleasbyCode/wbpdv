@@ -7,7 +7,7 @@ There is also a [***Web edition***](https://cleasbycode.co.uk/wbpdv/app/), which
 ![Demo Image](https://github.com/CleasbyCode/wbpdv/blob/main/demo_image/wbpdv_180552.webp)  
 ***Image credit:*** [***@blackowl777***](https://x.com/blackowl777) / ***PIN: 7438463291507255314***
 
-Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** hides files within ***application segments*** of a ***WEBP*** image. 
+Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** hides files within ***Chunks*** of a ***WEBP*** image, such as ***ICCP***, ***EXIF*** & ***XMP***. 
 
 You can conceal any file type up to ***1GB***, although compatible sites (*listed below*) have their own ***much smaller*** size limits and *other requirements.  
 
