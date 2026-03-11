@@ -1,8 +1,10 @@
 #include "image.h"
 
 #include <webp/decode.h>
+#include <webp/encode.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <optional>
 #include <stdexcept>
 
@@ -17,6 +19,35 @@ namespace {
 		return std::nullopt;
 	}
 	return static_cast<std::size_t>(std::distance(vec.begin(), it));
+}
+
+// Re-encode a WebP image as lossy at the given quality.
+// Decodes to RGBA, then encodes back. Replaces image_vec in-place.
+void reEncodeAsLossy(vBytes& image_vec, float quality) {
+	int decoded_width = 0, decoded_height = 0;
+	uint8_t* rgba = WebPDecodeRGBA(image_vec.data(), image_vec.size(), &decoded_width, &decoded_height);
+	if (!rgba) {
+		throw std::runtime_error("Image File Error: Failed to decode WEBP image for re-encoding.");
+	}
+
+	uint8_t* output = nullptr;
+	const std::size_t output_size = WebPEncodeRGBA(
+		rgba,
+		decoded_width,
+		decoded_height,
+		decoded_width * 4,
+		quality,
+		&output);
+
+	WebPFree(rgba);
+
+	if (output_size == 0 || !output) {
+		if (output) WebPFree(output);
+		throw std::runtime_error("Image File Error: Failed to re-encode WEBP image.");
+	}
+
+	image_vec.assign(output, output + output_size);
+	WebPFree(output);
 }
 
 } // namespace
@@ -36,37 +67,26 @@ ImageInfo validateAndPrepareImage(vBytes& image_vec) {
 	}
 
 	if (image_vec[WEBP_EXTENDED_INDEX] == 'X') {
-		// Extended format: check for animation, strip XMP/EXIF, find VP8 chunk.
+		// Extended format: check for animation.
 		constexpr auto ANIM_SIG = std::to_array<Byte>({0x41, 0x4E, 0x49, 0x4D});
-		constexpr auto XMP_SIG  = std::to_array<Byte>({0x58, 0x4D, 0x50, 0x20});
-		constexpr auto EXIF_SIG = std::to_array<Byte>({0x45, 0x58, 0x49, 0x46});
-		constexpr auto VP8_SIG  = std::to_array<Byte>({0x56, 0x50, 0x38});
 
 		if (searchSig(image_vec, 0, ANIM_SIG).has_value()) {
 			throw std::runtime_error("Image File Error: WEBP animation image files not supported.");
 		}
-
-		if (auto xmp_pos = searchSig(image_vec, 0, XMP_SIG)) {
-			image_vec.erase(image_vec.begin() + static_cast<std::ptrdiff_t>(*xmp_pos), image_vec.end());
-		}
-
-		if (auto exif_pos = searchSig(image_vec, 0, EXIF_SIG)) {
-			image_vec.erase(image_vec.begin() + static_cast<std::ptrdiff_t>(*exif_pos), image_vec.end());
-		}
-
-		auto vp8_pos = searchSig(image_vec, WEBP_EXTENDED_INDEX, VP8_SIG);
-		if (!vp8_pos.has_value()) {
-			throw std::runtime_error("Error: Cannot find VP8 chunk in WEBP image.");
-		}
-
-		image_vec.erase(image_vec.begin(), image_vec.begin() + static_cast<std::ptrdiff_t>(*vp8_pos));
-	} else {
-		// Simple format: erase the first 12 bytes (RIFF/WEBP header).
-		if (image_vec.size() < WEBP_HEADER_LENGTH) {
-			throw std::runtime_error("Error: WEBP image too small.");
-		}
-		image_vec.erase(image_vec.begin(), image_vec.begin() + static_cast<std::ptrdiff_t>(WEBP_HEADER_LENGTH));
 	}
+
+	// Re-encode as lossy WebP to minimize cover image size.
+	// This also strips all existing metadata (EXIF, XMP, ICCP) and
+	// converts lossless images to lossy.
+	constexpr float ENCODE_QUALITY = 75.0f;
+	reEncodeAsLossy(image_vec, ENCODE_QUALITY);
+
+	// The re-encoded image is a simple-format WebP (RIFF + VP8).
+	// Strip the 12-byte RIFF/WEBP header to leave just the VP8 chunk.
+	if (image_vec.size() < WEBP_HEADER_LENGTH) {
+		throw std::runtime_error("Error: Re-encoded WEBP image too small.");
+	}
+	image_vec.erase(image_vec.begin(), image_vec.begin() + static_cast<std::ptrdiff_t>(WEBP_HEADER_LENGTH));
 
 	return {width, height};
 }
