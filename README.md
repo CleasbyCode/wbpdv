@@ -81,7 +81,7 @@ wbpdv ***conceal*** mode ***platform*** options:
   ```console
   $ python3 bsky_post.py --handle you.bsky.social --password xxxx-xxxx-xxxx-xxxx --image your_image.webp --alt-text "alt-text here (optional)" "standard post text here (required)"
   ```
-
+https://github.com/user-attachments/assets/7c725045-b3f0-4bd1-890f-7810a721ca5c
 
 ## Third-Party Libraries
 
