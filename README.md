@@ -1,6 +1,6 @@
 # wbpdv 
 
-***wbpdv*** is a fast, easy-to-use steganography command-line tool for concealing and extracting any file type via a **WEBP** image.  
+***wbpdv*** is a fast, easy-to-use steganography command-line tool for concealing any file type via a **WEBP** image.  
 
 There is also a [***Web edition***](https://cleasbycode.co.uk/wbpdv/app/), which you can use immediately, as a convenient alternative to downloading and compiling the CLI source code.
 
