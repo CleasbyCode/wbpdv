@@ -54,8 +54,8 @@ Complete! Please check your file.
 ## Compatible Platforms
 *Posting size limit measured by the combined size of the cover image + compressed data file:*  
 
-● ***Mastodon*** (**16MB**) 
-● ***Tumblr*** (**9MB**) 
+● ***Mastodon*** (**16MB**)   
+● ***Tumblr*** (**9MB**)   
 ● ***Bluesky*** (**~1MB** | ***-b option***)
 
 wbpdv ***mode*** arguments:
