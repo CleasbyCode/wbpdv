@@ -74,9 +74,7 @@ wbpdv ***conceal*** mode ***platform*** options:
 
   To use the script, you will need to create an [***app password***](https://bsky.app/settings/app-passwords) from your ***Bluesky*** account.  
 
-  Here are some basic usage examples for the ***bsky_post.py*** script.  
-
-  Standard image post to your bsky profile:
+  Standard ***bsky script*** example of an image post to your bsky profile:
 
   ```console
   $ python3 bsky_post.py --handle you.bsky.social --password xxxx-xxxx-xxxx-xxxx --image your_image.webp --alt-text "alt-text here (optional)" "standard post text here (required)"
@@ -84,6 +82,8 @@ wbpdv ***conceal*** mode ***platform*** options:
 https://github.com/user-attachments/assets/7c725045-b3f0-4bd1-890f-7810a721ca5c  
 
 https://github.com/user-attachments/assets/5520d223-e179-4ab1-81ee-bfd8a42197f2
+
+https://github.com/user-attachments/assets/764b043f-0871-41e9-b46b-2e39ce04ed26
 
 ## Third-Party Libraries
 
