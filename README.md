@@ -63,7 +63,7 @@ wbpdv ***mode*** arguments:
   ***conceal*** - Compresses, encrypts and embeds your secret data file within a ***WEBP*** cover image.  
   ***recover*** - Decrypts, uncompresses and extracts the concealed data file from a ***WEBP*** cover image.
  
-wbpdv ***conceal*** mode ***platform*** options:
+wbpdv ***conceal*** mode ***platform*** option:
  
   "***-b***" To create compatible "*file-embedded*" ***WEBP*** images for posting on the ***Bluesky*** platform, you must use the ***-b*** option with ***conceal*** mode.
   ```console
