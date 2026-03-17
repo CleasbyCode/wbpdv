@@ -1,13 +1,13 @@
 # wbpdv 
 
-***wbpdv*** is a fast, easy-to-use steganography command-line tool for concealing any file type via a **WEBP** image.  
+***wbpdv*** is a fast, easy-to-use steganography command-line tool for concealing any file type via a **WebP** image.  
 
 There is also a [***Web edition***](https://cleasbycode.co.uk/wbpdv/app/), which you can use immediately, as a convenient alternative to downloading and compiling the CLI source code.
 
 ![Demo Image](https://github.com/CleasbyCode/wbpdv/blob/main/demo_image/wbpdv_180552.webp)  
 ***Image credit:*** [***@blackowl777***](https://x.com/blackowl777) / ***PIN: 7438463291507255314***
 
-Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** embeds files within ***Chunks*** of a ***WEBP*** image, such as ***ICCP***, ***EXIF*** & ***XMP***. 
+Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** embeds files within ***Chunks*** of a ***WebP*** image, such as ***ICCP***, ***EXIF*** & ***XMP***. 
 
 You can conceal any file type up to ***1GB***, although compatible sites (*listed below*) have their own ***much smaller*** size limits and *other requirements.  
 
@@ -60,8 +60,8 @@ Complete! Please check your file.
 
 wbpdv ***mode*** arguments:
  
-  ***conceal*** - Compresses, encrypts and embeds your secret data file within a ***WEBP*** cover image.  
-  ***recover*** - Decrypts, uncompresses and extracts the concealed data file from a ***WEBP*** cover image.
+  ***conceal*** - Compresses, encrypts and embeds your secret data file within a ***WebP*** cover image.  
+  ***recover*** - Decrypts, uncompresses and extracts the concealed data file from a ***WebP*** cover image.
  
 wbpdv ***conceal*** mode ***platform*** option:
  
