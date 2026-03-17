@@ -1,4 +1,4 @@
-// WEBP Data Vehicle (wbpdv v3.1). Created by Nicholas Cleasby (@CleasbyCode) 13/11/2024
+// WebP Data Vehicle (wbpdv v3.1). Created by Nicholas Cleasby (@CleasbyCode) 13/11/2024
 
 #include "args.h"
 #include "conceal.h"
