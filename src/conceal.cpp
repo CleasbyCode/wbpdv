@@ -98,7 +98,7 @@ void writeOutputFile(std::span<const Byte> data, std::size_t pin, bool is_bluesk
 	std::println("\nPlatform compatibility for output image:-\n");
 
 	if (is_bluesky) {
-		std::println(" ✓ Bluesky. (Only share this \"file-embedded\" WEBP image on Bluesky).");
+		std::println(" ✓ Bluesky. (Only share this \"file-embedded\" WebP image on Bluesky).");
 	}
 	else if (data.size() > 9 * 1024 * 1024) {
 		std::println(" ✓ Mastodon");
@@ -108,7 +108,7 @@ void writeOutputFile(std::span<const Byte> data, std::size_t pin, bool is_bluesk
 		std::println(" ✓ Tumblr");
 	}
 
-	std::println("\nSaved \"file-embedded\" WEBP image: {} ({} bytes).", output_file.path.string(), data.size());
+	std::println("\nSaved \"file-embedded\" WebP image: {} ({} bytes).", output_file.path.string(), data.size());
 	std::println("\nRecovery PIN: [***{}***]\n\nImportant: Keep your PIN safe, so that you can extract the hidden file.\n\nComplete!\n", pin);
 }
 
@@ -250,7 +250,7 @@ void concealData(vBytes& image_vec, Option option, const fs::path& data_file_pat
 		// 11b. Write RIFF size and check Bluesky upload limit.
 		const std::size_t total_size = output_vec.size();
 		if (total_size < 8 || total_size - 8 > std::numeric_limits<std::uint32_t>::max()) {
-			throw std::runtime_error("File Size Error: Output file too large for WEBP format.");
+			throw std::runtime_error("File Size Error: Output file too large for WebP format.");
 		}
 		if (total_size > MAX_BLUESKY_UPLOAD_SIZE) {
 			throw std::runtime_error(
@@ -306,7 +306,7 @@ void concealData(vBytes& image_vec, Option option, const fs::path& data_file_pat
 	// 11. Write RIFF size at offset 0x04 (4-byte LE) = total_size - 8.
 	const std::size_t total_size = profile_vec.size();
 	if (total_size < 8 || total_size - 8 > std::numeric_limits<std::uint32_t>::max()) {
-		throw std::runtime_error("File Size Error: Output file too large for WEBP format.");
+		throw std::runtime_error("File Size Error: Output file too large for WebP format.");
 	}
 	writeLe32At(profile_vec, 0x04, static_cast<std::uint32_t>(total_size - 8));
 
