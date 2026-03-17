@@ -93,7 +93,7 @@ enum class ByteOrder : Byte {
 }
 
 [[nodiscard]] std::span<const Byte> parseRiffWebP(std::span<const Byte> image_data) {
-	constexpr const char* CORRUPT_RIFF_ERROR = "Image File Error: Invalid or corrupt WEBP container.";
+	constexpr const char* CORRUPT_RIFF_ERROR = "Image File Error: Invalid or corrupt WebP container.";
 
 	requireSpanRange(image_data, 0, 12, CORRUPT_RIFF_ERROR);
 	if (!std::ranges::equal(image_data.first(RIFF_CHUNK_TAG.size()), RIFF_CHUNK_TAG) ||
@@ -115,7 +115,7 @@ enum class ByteOrder : Byte {
 }
 
 [[nodiscard]] std::optional<RiffChunkView> findChunk(std::span<const Byte> riff_file, const auto& tag) {
-	constexpr const char* CORRUPT_RIFF_ERROR = "Image File Error: Invalid or corrupt WEBP container.";
+	constexpr const char* CORRUPT_RIFF_ERROR = "Image File Error: Invalid or corrupt WebP container.";
 
 	for (std::size_t offset = 12; offset < riff_file.size(); ) {
 		requireSpanRange(riff_file, offset, 8, CORRUPT_RIFF_ERROR);
