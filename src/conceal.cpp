@@ -219,21 +219,36 @@ void concealData(vBytes& image_vec, Option option, const fs::path& data_file_pat
 		}
 		writeBe32At(profile_vec, BLUESKY_ARTIST_COUNT_OFFSET, static_cast<std::uint32_t>(artist_count));
 
-		// 10b. Pad EXIF chunk if odd, then append XMP chunk + VP8 image data.
+		// 10b. Assemble output: RIFF+VP8X + VP8 image data + EXIF chunk + [XMP chunk].
+		//       Place image data before metadata chunks so Bluesky doesn't need to reposition them.
+		constexpr std::size_t VP8X_END = 0x1E;
+
+		vBytes output_vec;
+		output_vec.reserve(VP8X_END + image_vec.size() + (profile_vec.size() - VP8X_END) + xmp_chunk.size() + 2);
+
+		// RIFF header + VP8X chunk.
+		output_vec.insert(output_vec.end(), profile_vec.begin(), profile_vec.begin() + VP8X_END);
+
+		// VP8 image data (before metadata chunks).
+		output_vec.insert(output_vec.end(), image_vec.begin(), image_vec.end());
+
+		// EXIF chunk (tag + size + data).
+		output_vec.insert(output_vec.end(), profile_vec.begin() + VP8X_END, profile_vec.end());
 		if (exif_data_size % 2 != 0) {
-			profile_vec.push_back(0x00);
+			output_vec.push_back(0x00);
 		}
+
+		// XMP chunk (if overflow).
 		if (!xmp_chunk.empty()) {
-			profile_vec.insert(profile_vec.end(), xmp_chunk.begin(), xmp_chunk.end());
+			output_vec.insert(output_vec.end(), xmp_chunk.begin(), xmp_chunk.end());
 			const std::size_t xmp_payload_size = xmp_chunk.size() - 8;
 			if (xmp_payload_size % 2 != 0) {
-				profile_vec.push_back(0x00);
+				output_vec.push_back(0x00);
 			}
 		}
-		profile_vec.insert(profile_vec.end(), image_vec.begin(), image_vec.end());
 
 		// 11b. Write RIFF size and check Bluesky upload limit.
-		const std::size_t total_size = profile_vec.size();
+		const std::size_t total_size = output_vec.size();
 		if (total_size < 8 || total_size - 8 > std::numeric_limits<std::uint32_t>::max()) {
 			throw std::runtime_error("File Size Error: Output file too large for WEBP format.");
 		}
@@ -244,10 +259,10 @@ void concealData(vBytes& image_vec, Option option, const fs::path& data_file_pat
 				std::to_string(MAX_BLUESKY_UPLOAD_SIZE) + " bytes.\n"
 				"Try a smaller cover image or data file.");
 		}
-		writeLe32At(profile_vec, 0x04, static_cast<std::uint32_t>(total_size - 8));
+		writeLe32At(output_vec, 0x04, static_cast<std::uint32_t>(total_size - 8));
 
 		// 12b. Write output.
-		writeOutputFile(std::span<const Byte>(profile_vec.data(), profile_vec.size()), pin, true);
+		writeOutputFile(std::span<const Byte>(output_vec.data(), output_vec.size()), pin, true);
 		return;
 	}
 
