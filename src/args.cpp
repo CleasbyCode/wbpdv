@@ -8,11 +8,11 @@
 void displayInfo() {
 	std::print(R"(
 
-WEBP Data Vehicle (wbpdv v3.1)
+WebP Data Vehicle (wbpdv v3.1)
 Created by Nicholas Cleasby (@CleasbyCode) 13/11/2024.
 
 wbpdv is a metadata "steganography-like" command-line tool used for concealing and extracting
-any file type within and from a WEBP image.
+any file type within and from a WebP image.
 
 ──────────────────────────
 Compile & run (Linux)
@@ -40,7 +40,7 @@ Usage
 Platform compatibility & size limits
 ──────────────────────────
 
-Share your "file-embedded" WEBP image on the following compatible sites.
+Share your "file-embedded" WebP image on the following compatible sites.
 
 Size limit is measured by the combined size of cover image + data file:
 
@@ -59,16 +59,16 @@ Bluesky - Total output image file must not exceed 1,000,000 bytes (use -b option
 Modes
 ──────────────────────────
 
-  conceal - Compresses, encrypts and embeds your secret data file within a WEBP cover image.
+  conceal - Compresses, encrypts and embeds your secret data file within a WebP cover image.
 
-  recover - Decrypts, uncompresses and extracts the concealed data file from a WEBP cover image
+  recover - Decrypts, uncompresses and extracts the concealed data file from a WebP cover image
             (recovery PIN required).
 
 ──────────────────────────
 Platform options for conceal mode
 ──────────────────────────
 
--b (Bluesky) : Creates compatible "file-embedded" WEBP images for posting on Bluesky.
+-b (Bluesky) : Creates compatible "file-embedded" WebP images for posting on Bluesky.
 
 $ wbpdv conceal -b my_image.webp hidden.doc
 
