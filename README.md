@@ -34,7 +34,7 @@ Usage: wbpdv conceal [-b] <cover_image> <secret_file>
 
 $ wbpdv conceal your_cover_image.webp your_secret_file.doc
    
-Saved "file-embedded" WEBP image: wbpdv_129462.webp (143029 bytes).
+Saved "file-embedded" WebP image: wbpdv_129462.webp (143029 bytes).
 
 Recovery PIN: [***2166776980318349924***]
 
