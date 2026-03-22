@@ -17,7 +17,7 @@ fi
 
 CXXFLAGS=(
   -std=c++23
-  -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wformat -Wformat-security
+  -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wformat -Wformat-security -march=native
   -D_FORTIFY_SOURCE=3 -D_GLIBCXX_ASSERTIONS
   -O3 -pipe
   -fstack-protector-strong -fstack-clash-protection -fPIE
