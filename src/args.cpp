@@ -10,7 +10,7 @@ namespace {
 void displayInfo() {
   std::print(R"(
 
-WEBP Data Vehicle (wbpdv v3.1)
+WEBP Data Vehicle (wbpdv v3.2)
 Created by Nicholas Cleasby (@CleasbyCode) 13/11/2024.
 
 wbpdv is a metadata "steganography-like" command-line tool used for concealing and extracting
