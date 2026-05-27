@@ -11,7 +11,7 @@ Unlike the common steganography method of concealing data within the pixels of a
 
 You can conceal any file type up to ***1GB***, although compatible sites (*listed below*) have their own ***much smaller*** size limits and *other requirements.  
 
-For increased storage capacity and better security, your embedded data file is compressed with ***zlib*** and encrypted using the ***libsodium*** cryptographic library.  
+For increased storage capacity and better security, your embedded data file is compressed with ***libdeflate (zlib-compatible)*** and encrypted using the ***libsodium*** cryptographic library.
 
 ## Usage (Linux)
 
@@ -101,6 +101,9 @@ This project makes use of the following third-party libraries:
 - **zlib**: General-purpose compression library
   - License: zlib/libpng license (see [***LICENSE***](https://github.com/madler/zlib/blob/develop/LICENSE) file)
   - Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler
+- **libdeflate**: Fast, whole-buffer DEFLATE/zlib/gzip compression and decompression library
+  - License: MIT (Expat) license (see [***LICENSE***](https://raw.githubusercontent.com/ebiggers/libdeflate/master/COPYING) file)
+  - Copyright (C) 2016-2024 Eric Biggers.
 - **WebP**: Image processing library, developed by Google.
    - **Copyright**: Copyright 2010 Google Inc.
    - **License**: BSD 3-Clause License (see [***LICENSE***](https://github.com/webmproject/libwebp?tab=BSD-3-Clause-1-ov-file#readme) file for details)    
