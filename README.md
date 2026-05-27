@@ -18,7 +18,7 @@ For increased storage capacity and better security, your embedded data file is c
 ```console
 Note: Compiler support for C++23 required.
 
-$ sudo apt install libsodium-dev zlib1g-dev libwebp-dev
+$ sudo apt install libsodium-dev zlib1g-dev libdeflate-dev libwebp-dev
 $ chmod +x compile_wbpdv.sh
 $ ./compile_wbpdv.sh
 
