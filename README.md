@@ -13,17 +13,12 @@ You can conceal any file type up to ***1GB***, although compatible sites (*liste
 
 For increased storage capacity and better security, your embedded data file is compressed with ***libdeflate/zlib*** — unless it's already a compressed file type — and encrypted with ***XChaCha20-Poly1305*** using the ***libsodium*** cryptographic library.
 
-## Usage (Linux)
+## Compilation & Usage (Linux)
 
 ```console
-Note: Compiler support for C++23 required.
-
 $ sudo apt install libsodium-dev zlib1g-dev libdeflate-dev libwebp-dev
 $ chmod +x compile_wbpdv.sh
 $ ./compile_wbpdv.sh
-
-Compiling wbpdv...
-Compilation successful. Executable 'wbpdv' created.
 
 $ sudo cp wbpdv /usr/bin
 $ wbpdv
