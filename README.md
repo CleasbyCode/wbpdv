@@ -88,22 +88,65 @@ https://github.com/user-attachments/assets/ef39f5fc-caed-4bc7-a80d-ff478095415e
 
 https://github.com/user-attachments/assets/39e89290-ac20-40b6-8a27-289f8680a3d2
 
-## Third-Party Libraries
+## Third-Party Software and Assets
 
-This project makes use of the following third-party libraries:
+  ### Core application
 
-- **libsodium**: For cryptographic functions.
-  - [**LICENSE**](https://github.com/jedisct1/libsodium/blob/master/LICENSE)
-  - Copyright (C) 2013-2025 Frank Denis (github@pureftpd.org)
-- **zlib**: General-purpose compression library
-  - License: zlib/libpng license (see [***LICENSE***](https://github.com/madler/zlib/blob/develop/LICENSE) file)
-  - Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler
-- **libdeflate**: Fast, whole-buffer DEFLATE/zlib/gzip compression and decompression library
-  - License: MIT (Expat) license (see [***LICENSE***](https://raw.githubusercontent.com/ebiggers/libdeflate/master/COPYING) file)
-  - Copyright (C) 2016-2024 Eric Biggers.
-- **WebP**: Image processing library, developed by Google.
-   - **Copyright**: Copyright 2010 Google Inc.
-   - **License**: BSD 3-Clause License (see [***LICENSE***](https://github.com/webmproject/libwebp?tab=BSD-3-Clause-1-ov-file#readme) file for details)    
+  - [libsodium](https://github.com/jedisct1/libsodium) — Cryptographic random generation, password hashing, authenticated encryption, secure
+    memory clearing, and Base64 decoding.
+    License: [ISC](https://github.com/jedisct1/libsodium/blob/master/LICENSE)
+    Copyright (c) 2013–2026 Frank Denis.
+
+  - [zlib](https://github.com/madler/zlib) — Streaming zlib compression and decompression.
+    License: [zlib License](https://github.com/madler/zlib/blob/develop/LICENSE)
+    Copyright (C) 1995–2026 Jean-loup Gailly and Mark Adler.
+
+  - [libdeflate](https://github.com/ebiggers/libdeflate) — Fast whole-buffer zlib-format compression.
+    License: [MIT](https://github.com/ebiggers/libdeflate/blob/master/COPYING)
+    Copyright 2016 Eric Biggers.
+    Copyright 2024 Google LLC.
+
+  - [libwebp](https://github.com/webmproject/libwebp) — WebP validation, decoding, and encoding.
+    License: [BSD 3-Clause](https://github.com/webmproject/libwebp/blob/main/COPYING), with an
+    additional [patent grant](https://github.com/webmproject/libwebp/blob/main/PATENTS).
+    Copyright (c) 2010, Google Inc. All rights reserved.
+
+  ### Incorporated source and assets
+
+  - base64simd — The AVX2 Base64 encoder is adapted from Wojciech Muła’s vector Base64
+    implementation.
+    License: [BSD 2-Clause](https://github.com/WojciechMula/base64simd/blob/master/LICENSE)
+    Copyright (c) 2015–2018, Wojciech Muła. All rights reserved.
+
+  - Compact ICC Profiles — [A modified sRGB-v2-micro.icc](https://github.com/saucecontrol/Compact-ICC-Profiles/blob/master/profiles/sRGB-v2-micro.icc)
+    profile is embedded in the standard WebP template.
+    License: [CC0 1.0 Universal](https://github.com/saucecontrol/Compact-ICC-Profiles/blob/master/license).
+
+  ### Optional Bluesky posting helper
+
+  - Bryan Newbold / ATProto Hacker Cookbook — create_bsky_post.py — Basis for the forked Bluesky
+    posting helper (src/bsky/bsky_post.py). 
+    For reference see the [Cookbook copy](https://github.com/bluesky-social/cookbook/blob/main/python-bsky-post/create_bsky_post.py)
+    License: [CC0 1.0 Universal](https://github.com/bluesky-social/cookbook/blob/main/LICENSE-CC0).
+
+  - Requests — HTTP and Bluesky API requests.
+    License: [Apache 2.0](https://github.com/psf/requests/blob/main/LICENSE)
+    [NOTICE](https://github.com/psf/requests/blob/main/NOTICE)
+    
+    Copyright 2019 Kenneth Reitz.
+
+  - Beautiful Soup 4 — HTML and Open Graph metadata parsing.
+    License: [MIT](https://pypi.org/project/beautifulsoup4/)
+    
+    Copyright (c) Leonard Richardson.
+
+  - Pillow — Image validation, dimensions, and aspect-ratio handling.
+    License: [MIT-CMU](https://github.com/python-pillow/Pillow/blob/main/LICENSE)
+    
+    PIL copyright © 1997–2011 Secret Labs AB and © 1995–2011 Fredrik Lundh and contributors.
+    
+    Pillow copyright © 2010 Jeffrey “Alex” Clark and contributors.
+    
 ##
 
 
