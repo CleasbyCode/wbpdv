@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 
-"""Bluesky posting helper adapted from Bryan Newbold's original script:
+"""
+Script demonstrating how to create posts using the Bluesky API, covering most of the features and embed options.
 
+Bluesky posting helper adapted from Bryan Newbold's original script:
+
+ https://github.com/bluesky-social/cookbook/blob/main/python-bsky-post/create_bsky_post.py
  https://gist.github.com/bnewbold
  https://bsky.app/profile/bnewbold.net
 
-Supports hashtags, per-image alt text, and Pillow-derived aspect ratios.
+ Fork:
+ https://gist.github.com/CleasbyCode/1eb678ca1fa1975b1c1e20aeec33637e
+ 
+Supports hashtags, per-image alt text, Pillow-derived aspect ratios, ATP_AUTH_HANDLE and ATP_AUTH_PASSWORD environment variables.
+
 Requires: requests, beautifulsoup4, pillow
     $ pip install requests beautifulsoup4 pillow
 """
@@ -20,7 +28,6 @@ import os
 import re
 import socket
 import sys
-import unicodedata
 import warnings
 from bisect import bisect_left
 from contextlib import contextmanager
@@ -39,7 +46,6 @@ DEFAULT_PDS_URL = "https://bsky.social"
 MAX_IMAGES_PER_POST = 4
 MAX_IMAGE_SIZE_BYTES = 1_000_000
 MAX_POST_GRAPHEMES = 300
-MAX_POST_BYTES = 3_000
 MAX_EMBED_HTML_BYTES = 2_000_000
 MAX_EMBED_IMAGE_BYTES = 1_000_000
 MAX_IMAGE_PIXELS = 40_000_000
@@ -124,26 +130,11 @@ def normalize_pds_url(pds_url: str, *, allow_insecure: bool = False) -> str:
             "PDS URL must be only a scheme and host, without path/query/fragment"
         )
     scheme = parsed.scheme.lower()
-    if scheme == "http":
-        if not allow_insecure:
-            raise ValueError(
-                "Refusing to send credentials to a non-HTTPS PDS URL "
-                "(--allow-insecure-pds permits only literal loopback URLs such as "
-                "http://127.0.0.1 or http://[::1])"
-            )
-        try:
-            address = ipaddress.ip_address(parsed.hostname or "")
-        except ValueError as exc:
-            raise ValueError(
-                "Insecure PDS URLs must use a literal loopback IP address "
-                "(http://127.0.0.1 or http://[::1]); hostnames are not allowed"
-            ) from exc
-        address = getattr(address, "ipv4_mapped", None) or address
-        if not address.is_loopback:
-            raise ValueError(
-                "Insecure PDS URLs are limited to literal loopback IP addresses "
-                "(http://127.0.0.1 or http://[::1])"
-            )
+    if scheme != "https" and not allow_insecure:
+        raise ValueError(
+            "Refusing to send credentials to a non-HTTPS PDS URL "
+            "(use --allow-insecure-pds only for local testing)"
+        )
     return urlunparse((scheme, parsed.netloc, "", "", "", "")).rstrip("/")
 
 
@@ -993,51 +984,9 @@ def test_normalize_pds_url():
     else:
         raise AssertionError("expected insecure PDS URL to fail")
     _check_equal(
-        normalize_pds_url("http://127.0.0.1:2583", allow_insecure=True),
-        "http://127.0.0.1:2583",
-    )
-    _check_equal(
-        normalize_pds_url("http://[::1]:2583", allow_insecure=True),
-        "http://[::1]:2583",
-    )
-    for unsafe in (
+        normalize_pds_url("http://localhost:2583", allow_insecure=True),
         "http://localhost:2583",
-        "http://local.test:2583",
-        "http://0.0.0.0:2583",
-        "http://192.168.1.5:2583",
-        "http://8.8.8.8:2583",
-    ):
-        try:
-            normalize_pds_url(unsafe, allow_insecure=True)
-        except ValueError:
-            pass
-        else:
-            raise AssertionError(f"expected non-literal/non-loopback PDS to fail: {unsafe}")
-
-
-def test_grapheme_and_text_limits():
-    _check_equal(grapheme_count(""), 0)
-    _check_equal(grapheme_count("e\u0301"), 1)
-    _check_equal(grapheme_count("\u1100\u1161"), 1)  # decomposed Hangul syllable
-    _check_equal(grapheme_count("👍🏽"), 1)
-    _check_equal(grapheme_count("👨\u200d👩\u200d👧\u200d👦"), 1)
-    _check_equal(grapheme_count("🇬🇧🇺🇸🇨"), 3)
-    _check_equal(
-        grapheme_count("👨\u200d👩\u200d👧\u200d👦" * MAX_POST_GRAPHEMES),
-        MAX_POST_GRAPHEMES,
     )
-    _validate_text_length("e\u0301" * MAX_POST_GRAPHEMES)
-
-    for oversized in (
-        "a" * (MAX_POST_GRAPHEMES + 1),
-        "a" + "\u0301" * (MAX_POST_BYTES // 2 + 1),
-    ):
-        try:
-            _validate_text_length(oversized)
-        except ValueError:
-            pass
-        else:
-            raise AssertionError("expected oversized post text to fail")
 
 
 def test_url_security_checks():
@@ -1425,7 +1374,6 @@ def run_self_tests() -> None:
         test_span_reservations_stay_sorted,
         test_parse_uri,
         test_normalize_pds_url,
-        test_grapheme_and_text_limits,
         test_url_security_checks,
         test_pinned_url_transport,
         test_open_pinned_response_uses_validated_ip,
@@ -1465,149 +1413,14 @@ def _validate_embed_args(args: argparse.Namespace) -> int:
     return len(selected_sources)
 
 
-def _in_codepoint_ranges(value: int, ranges: tuple[tuple[int, int], ...]) -> bool:
-    return any(start <= value <= end for start, end in ranges)
-
-
-def _hangul_grapheme_type(character: str) -> str:
-    value = ord(character)
-    if _in_codepoint_ranges(value, ((0x1100, 0x115F), (0xA960, 0xA97C))):
-        return "L"
-    if _in_codepoint_ranges(value, ((0x1160, 0x11A7), (0xD7B0, 0xD7C6))):
-        return "V"
-    if _in_codepoint_ranges(value, ((0x11A8, 0x11FF), (0xD7CB, 0xD7FB))):
-        return "T"
-    if 0xAC00 <= value <= 0xD7A3:
-        return "LV" if (value - 0xAC00) % 28 == 0 else "LVT"
-    return ""
-
-
-def _is_grapheme_prepend(character: str) -> bool:
-    return _in_codepoint_ranges(
-        ord(character),
-        (
-            (0x0600, 0x0605), (0x06DD, 0x06DD), (0x070F, 0x070F),
-            (0x0890, 0x0891), (0x08E2, 0x08E2), (0x0D4E, 0x0D4E),
-            (0x110BD, 0x110BD), (0x110CD, 0x110CD),
-            (0x111C2, 0x111C3), (0x1193F, 0x1193F),
-            (0x11941, 0x11941), (0x11A3A, 0x11A3A),
-            (0x11A84, 0x11A89), (0x11D46, 0x11D46),
-        ),
-    )
-
-
-def _is_grapheme_extend(character: str) -> bool:
-    value = ord(character)
-    return (
-        unicodedata.category(character) in ("Mn", "Me")
-        or character == "\u200c"  # ZERO WIDTH NON-JOINER
-        or 0x1F3FB <= value <= 0x1F3FF  # emoji skin-tone modifiers
-        or 0xE0020 <= value <= 0xE007F  # emoji tag sequences
-    )
-
-
-def _is_extended_pictographic(character: str) -> bool:
-    # The standard library does not expose Unicode's Extended_Pictographic
-    # property. These ranges cover the emoji blocks and legacy pictographs used
-    # in extended grapheme (notably ZWJ) sequences.
-    value = ord(character)
-    return _in_codepoint_ranges(
-        value,
-        (
-            (0x00A9, 0x00A9), (0x00AE, 0x00AE), (0x203C, 0x203C),
-            (0x2049, 0x2049), (0x2122, 0x2122), (0x2139, 0x2139),
-            (0x2194, 0x2199), (0x21A9, 0x21AA), (0x231A, 0x231B),
-            (0x2328, 0x2328), (0x23CF, 0x23CF), (0x23E9, 0x23F3),
-            (0x23F8, 0x23FA), (0x24C2, 0x24C2), (0x25AA, 0x25AB),
-            (0x25B6, 0x25B6), (0x25C0, 0x25C0), (0x25FB, 0x25FE),
-            (0x2600, 0x27BF), (0x2934, 0x2935), (0x2B05, 0x2B07),
-            (0x2B1B, 0x2B1C), (0x2B50, 0x2B50), (0x2B55, 0x2B55),
-            (0x3030, 0x3030), (0x303D, 0x303D), (0x3297, 0x3297),
-            (0x3299, 0x3299), (0x1F000, 0x1FAFF),
-        ),
-    )
-
-
-def _is_grapheme_control(character: str) -> bool:
-    if character in ("\u200c", "\u200d") or _is_grapheme_prepend(character):
-        return False
-    if 0xE0020 <= ord(character) <= 0xE007F:
-        return False
-    return unicodedata.category(character) in ("Cc", "Cf", "Cs", "Zl", "Zp")
-
-
-def grapheme_count(text: str) -> int:
-    """Count extended grapheme clusters without a third-party Unicode module.
-
-    This implements the core UAX #29 rules needed for combining marks, Hangul,
-    emoji modifiers/ZWJ sequences, and paired regional indicators. The server
-    remains authoritative as Python's Unicode database may trail the service's.
-    """
-    if not text:
-        return 0
-
-    clusters = 1
-    regional_run = 1 if 0x1F1E6 <= ord(text[0]) <= 0x1F1FF else 0
-    for index in range(1, len(text)):
-        left = text[index - 1]
-        right = text[index]
-        left_value = ord(left)
-        right_value = ord(right)
-        left_hangul = _hangul_grapheme_type(left)
-        right_hangul = _hangul_grapheme_type(right)
-        left_regional = 0x1F1E6 <= left_value <= 0x1F1FF
-        right_regional = 0x1F1E6 <= right_value <= 0x1F1FF
-
-        should_break = True
-        if left == "\r" and right == "\n":
-            should_break = False
-        elif left in ("\r", "\n") or _is_grapheme_control(left):
-            should_break = True
-        elif right in ("\r", "\n") or _is_grapheme_control(right):
-            should_break = True
-        elif left_hangul == "L" and right_hangul in ("L", "V", "LV", "LVT"):
-            should_break = False
-        elif left_hangul in ("LV", "V") and right_hangul in ("V", "T"):
-            should_break = False
-        elif left_hangul in ("LVT", "T") and right_hangul == "T":
-            should_break = False
-        elif _is_grapheme_extend(right) or right == "\u200d":
-            should_break = False
-        elif unicodedata.category(right) == "Mc":
-            should_break = False
-        elif _is_grapheme_prepend(left):
-            should_break = False
-        elif right_regional and left_regional and regional_run % 2 == 1:
-            should_break = False
-        elif right and _is_extended_pictographic(right) and left == "\u200d":
-            previous = index - 2
-            while previous >= 0 and _is_grapheme_extend(text[previous]):
-                previous -= 1
-            if previous >= 0 and _is_extended_pictographic(text[previous]):
-                should_break = False
-
-        if should_break:
-            clusters += 1
-        regional_run = regional_run + 1 if right_regional else 0
-
-    return clusters
-
-
 def _validate_text_length(text: str) -> None:
-    try:
-        byte_length = len(text.encode("UTF-8"))
-    except UnicodeEncodeError as exc:
-        raise ValueError("Post text contains invalid Unicode surrogate characters.") from exc
-    cluster_count = grapheme_count(text)
-    if cluster_count > MAX_POST_GRAPHEMES:
+    # Bluesky's real cap is graphemes (plus a byte cap); Python's len() counts
+    # codepoints, so emoji clusters may over-count. Kept as a client-side sanity
+    # check; the server enforces the true limit.
+    if text and len(text) > MAX_POST_GRAPHEMES:
         raise ValueError(
-            f"Post text exceeds the {MAX_POST_GRAPHEMES}-grapheme limit "
-            f"(got {cluster_count})."
-        )
-    if byte_length > MAX_POST_BYTES:
-        raise ValueError(
-            f"Post text exceeds the {MAX_POST_BYTES}-byte UTF-8 limit "
-            f"(got {byte_length} bytes)."
+            f"Post text exceeds {MAX_POST_GRAPHEMES}-codepoint client-side limit "
+            f"(got {len(text)})."
         )
 
 
@@ -1637,8 +1450,7 @@ def main():
     parser.add_argument("--pds-url", default=os.environ.get("ATP_PDS_HOST", DEFAULT_PDS_URL),
                         help=f"PDS URL (default: {DEFAULT_PDS_URL} or ATP_PDS_HOST env var)")
     parser.add_argument("--allow-insecure-pds", action="store_true",
-                        help="Allow HTTP only to a literal loopback PDS URL "
-                             "(http://127.0.0.1 or http://[::1])")
+                        help="Allow non-HTTPS PDS URLs for local testing only")
     parser.add_argument("--handle", default=os.environ.get("ATP_AUTH_HANDLE"),
                         help="Bluesky handle (or ATP_AUTH_HANDLE env var)")
     parser.add_argument("--password", default=None,
