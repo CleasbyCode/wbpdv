@@ -95,27 +95,32 @@ https://github.com/user-attachments/assets/39e89290-ac20-40b6-8a27-289f8680a3d2
   - [libsodium](https://github.com/jedisct1/libsodium) — Cryptographic random generation, password hashing, authenticated encryption, secure
     memory clearing, and Base64 decoding.
     License: [ISC](https://github.com/jedisct1/libsodium/blob/master/LICENSE)
+    
     Copyright (c) 2013–2026 Frank Denis.
 
   - [zlib](https://github.com/madler/zlib) — Streaming zlib compression and decompression.
     License: [zlib License](https://github.com/madler/zlib/blob/develop/LICENSE)
+    
     Copyright (C) 1995–2026 Jean-loup Gailly and Mark Adler.
 
   - [libdeflate](https://github.com/ebiggers/libdeflate) — Fast whole-buffer zlib-format compression.
     License: [MIT](https://github.com/ebiggers/libdeflate/blob/master/COPYING)
+    
     Copyright 2016 Eric Biggers.
+    
     Copyright 2024 Google LLC.
 
   - [libwebp](https://github.com/webmproject/libwebp) — WebP validation, decoding, and encoding.
     License: [BSD 3-Clause](https://github.com/webmproject/libwebp/blob/main/COPYING), with an
     additional [patent grant](https://github.com/webmproject/libwebp/blob/main/PATENTS).
+    
     Copyright (c) 2010, Google Inc. All rights reserved.
 
   ### Incorporated source and assets
 
-  - base64simd — The AVX2 Base64 encoder is adapted from Wojciech Muła’s vector Base64
-    implementation.
+  - base64simd — The AVX2 Base64 encoder is adapted from Wojciech Muła’s vector Base64 implementation.
     License: [BSD 2-Clause](https://github.com/WojciechMula/base64simd/blob/master/LICENSE)
+    
     Copyright (c) 2015–2018, Wojciech Muła. All rights reserved.
 
   - Compact ICC Profiles — [A modified sRGB-v2-micro.icc](https://github.com/saucecontrol/Compact-ICC-Profiles/blob/master/profiles/sRGB-v2-micro.icc)
