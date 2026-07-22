@@ -92,25 +92,29 @@ https://github.com/user-attachments/assets/39e89290-ac20-40b6-8a27-289f8680a3d2
 
   ### Core application
 
-  - [libsodium](https://github.com/jedisct1/libsodium) — Cryptographic random generation, password hashing, authenticated encryption, secure
-    memory clearing, and Base64 decoding.
-    License: [ISC](https://github.com/jedisct1/libsodium/blob/master/LICENSE)
+  - [libsodium](https://github.com/jedisct1/libsodium) — cryptographic random generation, Argon2id
+  key derivation and XChaCha20-Poly1305 secret streams. Dynamically linked as a system library.
+      
+      License: [ISC License](https://github.com/jedisct1/libsodium/blob/master/LICENSE)
     
-    Copyright (c) 2013–2026 Frank Denis.
+      Copyright (c) 2013–2026 Frank Denis.
 
-  - [zlib](https://github.com/madler/zlib) — Streaming zlib compression and decompression.
+  - [zlib](https://github.com/madler/zlib) — Streaming zlib compression and decompression. Dynamically linked as a system library.
+
     License: [zlib License](https://github.com/madler/zlib/blob/develop/LICENSE)
     
     Copyright (C) 1995–2026 Jean-loup Gailly and Mark Adler.
 
-  - [libdeflate](https://github.com/ebiggers/libdeflate) — Fast whole-buffer zlib-format compression.
+  - [libdeflate](https://github.com/ebiggers/libdeflate) — Fast whole-buffer zlib-format compression. Dynamically linked as a system library.
+
     License: [MIT](https://github.com/ebiggers/libdeflate/blob/master/COPYING)
     
     Copyright 2016 Eric Biggers.
     
     Copyright 2024 Google LLC.
 
-  - [libwebp](https://github.com/webmproject/libwebp) — WebP validation, decoding, and encoding.
+  - [libwebp](https://github.com/webmproject/libwebp) — WebP validation, decoding, and encoding. Dynamically linked as a system library.
+    
     License: [BSD 3-Clause](https://github.com/webmproject/libwebp/blob/main/COPYING), with an
     additional [patent grant](https://github.com/webmproject/libwebp/blob/main/PATENTS).
     
@@ -127,25 +131,27 @@ https://github.com/user-attachments/assets/39e89290-ac20-40b6-8a27-289f8680a3d2
     profile is embedded in the standard WebP template.
     License: [CC0 1.0 Universal](https://github.com/saucecontrol/Compact-ICC-Profiles/blob/master/license).
 
-  ### Optional Bluesky posting helper
+   ### Optional Bluesky posting helper
 
-  - Bryan Newbold / ATProto Hacker Cookbook — create_bsky_post.py — Basis for the forked Bluesky
-    posting helper (src/bsky/bsky_post.py). 
+  - Bryan Newbold / ATProto Hacker Cookbook — create_bsky_post.py — Basis for the [forked](https://gist.github.com/CleasbyCode/1eb678ca1fa1975b1c1e20aeec33637e) Bluesky posting helper (src/bsky/bsky_post.py). 
     For reference see the [Cookbook copy](https://github.com/bluesky-social/cookbook/blob/main/python-bsky-post/create_bsky_post.py)
+
     License: [CC0 1.0 Universal](https://github.com/bluesky-social/cookbook/blob/main/LICENSE-CC0).
 
   - Requests — HTTP and Bluesky API requests.
-    License: [Apache 2.0](https://github.com/psf/requests/blob/main/LICENSE)
-    [NOTICE](https://github.com/psf/requests/blob/main/NOTICE)
+
+    License: [Apache 2.0](https://github.com/psf/requests/blob/main/LICENSE) / [NOTICE](https://github.com/psf/requests/blob/main/NOTICE)
     
     Copyright 2019 Kenneth Reitz.
 
   - Beautiful Soup 4 — HTML and Open Graph metadata parsing.
+
     License: [MIT](https://pypi.org/project/beautifulsoup4/)
     
     Copyright (c) Leonard Richardson.
 
   - Pillow — Image validation, dimensions, and aspect-ratio handling.
+
     License: [MIT-CMU](https://github.com/python-pillow/Pillow/blob/main/LICENSE)
     
     PIL copyright © 1997–2011 Secret Labs AB and © 1995–2011 Fredrik Lundh and contributors.
