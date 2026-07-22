@@ -20,12 +20,8 @@ any file type within and from a WEBP image.
 Compile & run (Linux)
 ──────────────────────────
 
-  A compiler with complete C++23 library support is required (GCC 14+ or an
-  equivalent recent Clang toolchain).
-
-  Debian/Ubuntu build dependencies:
-
-  $ sudo apt-get install g++ cmake ninja-build pkg-config util-linux libsodium-dev zlib1g-dev libdeflate-dev libwebp-dev
+  $ sudo apt update
+  $ sudo apt install g++ cmake ninja-build util-linux libsodium-dev zlib1g-dev libdeflate-dev libwebp-dev
 
   $ chmod +x compile_wbpdv.sh
   $ ./compile_wbpdv.sh
