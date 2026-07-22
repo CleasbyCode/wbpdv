@@ -123,12 +123,14 @@ https://github.com/user-attachments/assets/39e89290-ac20-40b6-8a27-289f8680a3d2
   ### Incorporated source and assets
 
   - [base64simd](https://github.com/WojciechMula/base64simd) — The AVX2 Base64 encoder is adapted from Wojciech Muła’s vector Base64 implementation.
+
     License: [BSD 2-Clause](https://github.com/WojciechMula/base64simd/blob/master/LICENSE)
     
     Copyright (c) 2015–2018, Wojciech Muła. All rights reserved.
 
   - [Compact ICC Profiles](https://github.com/saucecontrol/Compact-ICC-Profiles) — [A modified sRGB-v2-micro.icc](https://github.com/saucecontrol/Compact-ICC-Profiles/blob/master/profiles/sRGB-v2-micro.icc)
     profile is embedded in the standard WebP template.
+
     License: [CC0 1.0 Universal](https://github.com/saucecontrol/Compact-ICC-Profiles/blob/master/license).
 
    ### Optional Bluesky posting helper
