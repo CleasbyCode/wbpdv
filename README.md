@@ -49,11 +49,11 @@ Complete! Please check your file.
 
 ```
 ## Compatible Platforms
-*Posting size limit measured by the combined size of the cover image + compressed data file:*  
+*Posting size limit measured by the combined size of the cover image + your compressed hidden data file (payload):*  
 
 ● ***Mastodon*** (**16MB**)   
 ● ***Tumblr*** (**9MB**)   
-● ***Bluesky*** (**~1MB** | ***-b option***)
+● ***Bluesky*** (**~2MB** (2000000) | ***-b option***)
 
 wbpdv ***mode*** arguments:
  
