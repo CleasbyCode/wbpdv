@@ -53,7 +53,7 @@ Complete! Please check your file.
 
 ● ***Mastodon*** (**16MB**)   
 ● ***Tumblr***   (**9MB**)   
-● ***Bluesky***  (**2,000,000 bytes | ~1.9MB***)
+● ***Bluesky***  (**2,000,000 bytes | ~1.9MB**)
 
 wbpdv ***mode*** arguments:
  
