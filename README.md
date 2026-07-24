@@ -68,16 +68,13 @@ wbpdv ***conceal*** mode ***platform*** option:
   ```
   These images are only compatible for posting on ***Bluesky***. Your embedded data file will be removed if posted on a different platform.
  
-  You are also required to use the Python script ***"bsky_post.py"*** (*found in the repo ***src*** folder*) to post the image to ***Bluesky***.
+  You are also required to use the Python script [create_bsky_post.py](https://github.com/CleasbyCode/wbpdv/blob/main/src/bsky/create_bsky_post.py) (found in the repo ***src/bsky*** folder) to post the image to ***Bluesky***.
   It will not work if you post images to ***Bluesky*** via the browser site or mobile app.  
 
   To use the script, you will need to create an [***app password***](https://bsky.app/settings/app-passwords) from your ***Bluesky*** account.  
 
-  Standard ***bsky script*** example of an image post to your bsky profile:
-
-  ```console
-  $ python3 bsky_post.py --handle you.bsky.social --password xxxx-xxxx-xxxx-xxxx --image your_image.webp --alt-text "alt-text here (optional)" "standard post text here (required)"
-  ```
+  See the [create_bsky_post.py](https://github.com/CleasbyCode/wbpdv/blob/main/src/bsky/create_bsky_post.py) script in the src/bsky folder for some basic usage examples.
+  
 https://github.com/user-attachments/assets/7c725045-b3f0-4bd1-890f-7810a721ca5c  
 
 https://github.com/user-attachments/assets/5520d223-e179-4ab1-81ee-bfd8a42197f2
