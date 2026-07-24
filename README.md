@@ -52,8 +52,8 @@ Complete! Please check your file.
 *Posting size limit measured by the combined size of the cover image + your compressed hidden data file (payload):*  
 
 ● ***Mastodon*** (**16MB**)   
-● ***Tumblr*** (**9MB**)   
-● ***Bluesky*** (**~2MB** (2000000) | ***-b option***)
+● ***Tumblr***   (**9MB**)   
+● ***Bluesky***  (**2,000,000 bytes | ~1.9MB***)
 
 wbpdv ***mode*** arguments:
  
