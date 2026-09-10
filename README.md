@@ -7,9 +7,9 @@ There is also a [***Web edition***](https://cleasbycode.co.uk/wbpdv/app/), which
 ![Demo Image](https://github.com/CleasbyCode/wbpdv/blob/main/demo_image/wbpdv_180552.webp)  
 ***Image credit:*** [***@blackowl777***](https://x.com/blackowl777) / ***PIN: 7438463291507255314***
 
-Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** embeds files within ***Chunks*** of a ***WebP*** image, such as ***ICCP***, ***EXIF*** & ***XMP***. 
+Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** embeds files within ***Chunks*** of a ***WebP*** image, such as ***ICCP*** (Mastodon/Tumblr), ***EXIF*** & ***XMP*** (Bluesky). 
 
-You can conceal any file type up to ***1GB***, although compatible sites (*listed below*) have their own ***much smaller*** size limits and *other requirements.  
+You can conceal any file type up to ***1GiB***, although compatible sites (*listed below*) have their own ***much smaller*** size limits and *other requirements.  
 
 For increased storage capacity and better security, your embedded data file is compressed with ***libdeflate/zlib*** — unless it's already a compressed file type — and encrypted with ***XChaCha20-Poly1305*** using the ***libsodium*** cryptographic library.
 
@@ -51,9 +51,9 @@ Complete! Please check your file.
 ## Compatible Platforms
 *Posting size limit measured by the combined size of the cover image + your compressed hidden data file (payload):*  
 
-● ***Mastodon*** (**16MB**)   
-● ***Tumblr***   (**9MB**)   
-● ***Bluesky***  (**2,000,000 bytes | ~1.9MB**)
+● ***Mastodon*** (**16MiB**)   
+● ***Tumblr***   (**9MiB**)   
+● ***Bluesky***  (**2,000,000 bytes | ~1.9MiB**)
 
 wbpdv ***mode*** arguments:
  
