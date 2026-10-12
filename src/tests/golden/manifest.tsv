@@ -1,5 +1,0 @@
-case_id	option	payload_rel	golden_rel	pin	kind
-standard_text	.	testdata/payloads/payload_text.txt	golden/standard_text/embedded.webp	1129094912738813129	standard
-standard_bin	.	testdata/payloads/payload_bin.bin	golden/standard_bin/embedded.webp	10041511926028398448	standard
-bluesky_text	-b	testdata/payloads/payload_text.txt	golden/bluesky_text/embedded.webp	1568363783738240496	bluesky
-bluesky_xmp	-b	testdata/payloads/payload_bsky.bin	golden/bluesky_xmp/embedded.webp	14998053737723205268	bluesky_xmp
