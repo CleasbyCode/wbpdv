@@ -9,9 +9,9 @@ There is also a [***Web edition***](https://cleasbycode.co.uk/wbpdv/app/), which
 
 Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** embeds files within ***Chunks*** of a ***WebP*** image, such as ***ICCP*** (Mastodon/Tumblr), ***EXIF*** & ***XMP*** (Bluesky). 
 
-You can conceal any file type up to ***1GiB***, although compatible sites (*listed below*) have their own ***much smaller*** size limits and *other requirements.  
+You can conceal any file type up to ***1GiB***, although compatible sites (*listed below*) have their own ***much smaller*** size limits and other requirements.  
 
-For increased storage capacity and better security, your embedded data file is compressed with ***libdeflate/zlib*** — unless it's already a compressed file type — and encrypted with ***XChaCha20-Poly1305*** using the ***libsodium*** cryptographic library.
+For increased storage capacity and better security, your embedded data file is compressed with ***libdeflate/zlib*** (large files that won't compress are stored as-is) and encrypted with ***XChaCha20-Poly1305*** using the ***libsodium*** cryptographic library.
 
 ## Compilation & Usage (Linux)
 
@@ -31,7 +31,7 @@ Usage: wbpdv conceal [-b] <cover_image> <secret_file>
 
 $ wbpdv conceal your_cover_image.webp your_secret_file.doc
    
-Saved "file-embedded" WebP image: wbpdv_129462.webp (143029 bytes).
+Saved "file-embedded" WEBP image: wbpdv_129462.webp (143029 bytes).
 
 Recovery PIN: [***2166776980318349924***]
 
@@ -119,12 +119,6 @@ https://github.com/user-attachments/assets/39e89290-ac20-40b6-8a27-289f8680a3d2
 
   ### Incorporated source and assets
 
-  - [base64simd](https://github.com/WojciechMula/base64simd) — The AVX2 Base64 encoder is adapted from Wojciech Muła’s vector Base64 implementation.
-
-    License: [BSD 2-Clause](https://github.com/WojciechMula/base64simd/blob/master/LICENSE)
-    
-    Copyright (c) 2015–2018, Wojciech Muła. All rights reserved.
-
   - [Compact ICC Profiles](https://github.com/saucecontrol/Compact-ICC-Profiles) — [A modified sRGB-v2-micro.icc](https://github.com/saucecontrol/Compact-ICC-Profiles/blob/master/profiles/sRGB-v2-micro.icc)
     profile is embedded in the standard WebP template.
 
@@ -132,7 +126,7 @@ https://github.com/user-attachments/assets/39e89290-ac20-40b6-8a27-289f8680a3d2
 
    ### Optional Bluesky posting helper
 
-  - Bryan Newbold / ATProto Hacker Cookbook — create_bsky_post.py — Basis for the [forked](https://gist.github.com/CleasbyCode/1eb678ca1fa1975b1c1e20aeec33637e) Bluesky posting helper (src/bsky/bsky_post.py). 
+  - Bryan Newbold / ATProto Hacker Cookbook — create_bsky_post.py — Basis for the [forked](https://gist.github.com/CleasbyCode/1eb678ca1fa1975b1c1e20aeec33637e) Bluesky posting helper (src/bsky/create_bsky_post.py). 
     For reference see the [Cookbook copy](https://github.com/bluesky-social/cookbook/blob/main/python-bsky-post/create_bsky_post.py)
 
     License: [CC0 1.0 Universal](https://github.com/bluesky-social/cookbook/blob/main/LICENSE-CC0).
