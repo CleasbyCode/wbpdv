@@ -1,0 +1,392 @@
+#include "conceal.h"
+#include "base64.h"
+#include "compression.h"
+#include "encryption.h"
+#include "image.h"
+#include "io_utils.h"
+#include "pin_codec.h"
+#include "profile_template.h"
+
+#include <algorithm>
+#include <csignal>
+#include <cstdio>
+#include <format>
+#include <limits>
+#include <print>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <system_error>
+
+#include <unistd.h>
+
+namespace {
+
+constexpr std::size_t FILENAME_MAX_LEN = 20;
+constexpr std::size_t BLUESKY_MIN_METADATA_BYTES =
+    WEBP_BLUESKY_EXIF_TEMPLATE.size() + 64;
+constexpr std::size_t MASTODON_UPLOAD_SIZE = 16uz * 1024 * 1024;
+constexpr std::size_t TUMBLR_UPLOAD_SIZE = 9uz * 1024 * 1024;
+constexpr std::string_view OUTPUT_OVERFLOW_ERROR =
+    "File Size Error: Output file size overflow.";
+
+} // namespace
+
+std::size_t checkedStandardOutputSize(std::size_t profile_size,
+                                      bool iccp_needs_padding,
+                                      std::size_t image_size) {
+  const std::size_t output_size =
+      checkedSum(OUTPUT_OVERFLOW_ERROR, profile_size,
+                 iccp_needs_padding ? 1U : 0U, image_size);
+  if (output_size > MAX_PROGRAM_FILE_SIZE) {
+    throw std::runtime_error(
+        "File Size Error: Final output exceeds maximum size limit of 1GB.");
+  }
+  return output_size;
+}
+
+namespace {
+
+void appendSv(vBytes &out, std::string_view text) {
+  appendBytes(out,
+              std::span<const Byte>(reinterpret_cast<const Byte *>(text.data()),
+                                    text.size()),
+              OUTPUT_OVERFLOW_ERROR);
+}
+
+void appendRiffPadding(vBytes &out, std::size_t payload_size) {
+  if ((payload_size & 1U) != 0) {
+    out.push_back(0x00);
+  }
+}
+
+[[nodiscard]] std::uint32_t checkedU32(std::size_t value,
+                                       std::string_view error) {
+  if (value >
+      static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max())) {
+    throw std::runtime_error(std::string(error));
+  }
+  return static_cast<std::uint32_t>(value);
+}
+
+void setProfileDimensions(vBytes &profile_vec, int width, int height) {
+  writeLe24At(profile_vec, VP8X_CANVAS_WIDTH_MINUS_ONE_OFFSET,
+              static_cast<std::uint32_t>(width - 1));
+  writeLe24At(profile_vec, VP8X_CANVAS_HEIGHT_MINUS_ONE_OFFSET,
+              static_cast<std::uint32_t>(height - 1));
+}
+
+[[nodiscard]] vBytes buildXmpChunk(std::span<const Byte> overflow_data) {
+  constexpr std::string_view XMP_HEADER =
+      "<?xpacket begin=\"\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n"
+      "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"Go XMP SDK 1.0\">"
+      "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">"
+      "<rdf:Description xmlns:dc=\"http://purl.org/dc/elements/1.1/\" "
+      "rdf:about=\"\">"
+      "<dc:creator><rdf:Seq><rdf:li>";
+  constexpr std::string_view XMP_FOOTER =
+      "</rdf:li></rdf:Seq></dc:creator></rdf:Description></rdf:RDF></"
+      "x:xmpmeta>\n"
+      "<?xpacket end=\"w\"?>";
+
+  vBytes chunk(8);
+  chunk[0] = 'X';
+  chunk[1] = 'M';
+  chunk[2] = 'P';
+  chunk[3] = ' ';
+
+  // Bluesky spills encrypted bytes into XMP once the EXIF artist field is full.
+  constexpr std::string_view XMP_OVERFLOW_ERROR =
+      "File Size Error: XMP chunk payload exceeds size limits.";
+  const std::size_t base64_size = checkedMulSize(
+      checkedAddSize(overflow_data.size(), 2, XMP_OVERFLOW_ERROR) / 3, 4,
+      XMP_OVERFLOW_ERROR);
+  chunk.reserve(checkedSum(XMP_OVERFLOW_ERROR, 8, XMP_HEADER.size(),
+                           base64_size, XMP_FOOTER.size()));
+  appendSv(chunk, XMP_HEADER);
+  binaryToBase64(overflow_data, chunk);
+  appendSv(chunk, XMP_FOOTER);
+  writeLe32At(
+      chunk, 4,
+      checkedU32(chunk.size() - 8,
+                 "File Size Error: XMP chunk payload exceeds 4GB limit."));
+  return chunk;
+}
+
+void finalizeRiffSize(vBytes &data) {
+  if (data.size() < 8 ||
+      data.size() - 8 > std::numeric_limits<std::uint32_t>::max()) {
+    throw std::runtime_error(
+        "File Size Error: Output file too large for WEBP format.");
+  }
+  writeLe32At(data, 0x04, static_cast<std::uint32_t>(data.size() - 8));
+}
+
+constexpr const char *KEY_DELIVERY_ERROR =
+    "Output Error: Failed to deliver the recovery KEY. The output image has "
+    "been removed, as it could not be recovered without its KEY.";
+
+// stdio error flags are sticky, so this also catches a failed earlier print.
+void flushStdoutOrThrow() {
+  if (std::fflush(stdout) != 0 || std::ferror(stdout) != 0) {
+    throw std::runtime_error(KEY_DELIVERY_ERROR);
+  }
+}
+
+// Ignores SIGPIPE while the report is written, so a closed stdout pipe turns
+// into a write error (and the cleanup above) instead of killing the process
+// with the useless image left behind.
+class SigpipeIgnoreGuard {
+public:
+  SigpipeIgnoreGuard() {
+    struct sigaction ignore {};
+    ignore.sa_handler = SIG_IGN;
+    (void)sigemptyset(&ignore.sa_mask);
+    active_ = ::sigaction(SIGPIPE, &ignore, &old_) == 0;
+    if (!active_) {
+      throw std::runtime_error(KEY_DELIVERY_ERROR);
+    }
+  }
+  ~SigpipeIgnoreGuard() {
+    if (active_) {
+      (void)::sigaction(SIGPIPE, &old_, nullptr);
+    }
+  }
+  SigpipeIgnoreGuard(const SigpipeIgnoreGuard &) = delete;
+  SigpipeIgnoreGuard &operator=(const SigpipeIgnoreGuard &) = delete;
+
+private:
+  struct sigaction old_ {};
+  bool active_{false};
+};
+
+void reportOutput(const fs::path &saved_path, std::size_t output_size,
+                  const RecoveryPin &pin, bool is_bluesky) {
+  SigpipeIgnoreGuard sigpipe_guard;
+
+  std::println("\nPlatform compatibility for output image:-\n");
+
+  if (is_bluesky) {
+    std::println(" ✓ Bluesky. (Only share this \"file-embedded\" WEBP image on "
+                 "Bluesky).");
+  } else {
+    if (output_size <= MASTODON_UPLOAD_SIZE) {
+      std::println(" ✓ Mastodon");
+    }
+    if (output_size <= TUMBLR_UPLOAD_SIZE) {
+      std::println(" ✓ Tumblr");
+    }
+  }
+
+  std::println("\nSaved \"file-embedded\" WEBP image: {} ({} bytes).",
+               saved_path.string(), output_size);
+  std::print("\nRecovery KEY: [***");
+  flushStdoutOrThrow();
+
+  // The KEY goes straight to fd 1 from a wiped stack array: through stdio it
+  // would be copied into stdout's buffer, which is never wiped.
+  KeyDisplay key_text{};
+  struct WipeKeyText {
+    KeyDisplay &text;
+    ~WipeKeyText() { sodium_memzero(text.data(), text.size()); }
+  } wipe_key_text{key_text};
+  encodeKeyDisplay(pin, key_text);
+  try {
+    writeAllToFd(STDOUT_FILENO,
+                 std::span<const Byte>(
+                     reinterpret_cast<const Byte *>(key_text.data()),
+                     key_text.size()));
+  } catch (const std::exception &) {
+    throw std::runtime_error(KEY_DELIVERY_ERROR);
+  }
+
+  std::println("***]\n\nImportant: Keep your KEY safe, so that you can "
+               "extract the hidden file.\n\nComplete!\n");
+  flushStdoutOrThrow();
+}
+
+void writeOutputFile(std::span<const Byte> data, const RecoveryPin &pin,
+                     bool is_bluesky) {
+  OutputFile output_file = OutputFile::create(SHARED_FILE_MODE);
+  writeAllToFd(output_file.fd(), data);
+  syncFdOrThrow(output_file.fd(), "Write Error: Failed to sync output file: ");
+  const fs::path saved_path = output_file.publishUnique("wbpdv_", ".webp");
+
+  // The KEY printed below is the only copy. If it cannot be delivered, the
+  // image just saved can never be recovered, so remove it and fail rather
+  // than report success.
+  try {
+    reportOutput(saved_path, data.size(), pin, is_bluesky);
+  } catch (...) {
+    std::error_code ec;
+    fs::remove(saved_path, ec);
+    throw;
+  }
+}
+
+void validateDataFilename(const fs::path &data_file_path,
+                          const std::string &data_filename) {
+  if (const char *problem = embeddedFilenameProblem(data_file_path.filename())) {
+    throw std::runtime_error(
+        std::format("Data File Error: Embedded filename \"{}\" is unsafe: {}.",
+                    data_filename, problem));
+  }
+  // Count characters, not bytes: the name is valid UTF-8 by now, so every
+  // byte that is not a continuation byte starts one character.
+  if (std::ranges::count_if(data_filename, [](unsigned char c) {
+        return (c & 0xC0U) != 0x80U;
+      }) > static_cast<std::ptrdiff_t>(FILENAME_MAX_LEN)) {
+    throw std::runtime_error(
+        "Data File Error: For compatibility requirements, length of data "
+        "filename must not exceed 20 characters.");
+  }
+}
+
+void validateConcealSizes(const vBytes &image_vec, std::size_t data_file_size,
+                          bool is_bluesky) {
+  if (is_bluesky &&
+      checkedAddSize(image_vec.size(), BLUESKY_MIN_METADATA_BYTES,
+                     OUTPUT_OVERFLOW_ERROR) >
+          MAX_BLUESKY_UPLOAD_SIZE) {
+    throw std::runtime_error(
+        "File Size Error: Cover image is too large for Bluesky output.");
+  }
+  const std::size_t combined_size =
+      checkedAddSize(image_vec.size(), data_file_size,
+                     "File Size Error: Combined size overflow.");
+  if (!is_bluesky && combined_size > MAX_PROGRAM_FILE_SIZE) {
+    throw std::runtime_error("File Size Error: Combined size of image and data "
+                             "file exceeds maximum size limit of 1GB.");
+  }
+}
+
+void concealBluesky(vBytes &image_vec, vBytes &data_vec,
+                    const std::string &data_filename, int width, int height) {
+  vBytes profile_vec(WEBP_BLUESKY_EXIF_TEMPLATE.begin(),
+                     WEBP_BLUESKY_EXIF_TEMPLATE.end());
+  setProfileDimensions(profile_vec, width, height);
+  RecoveryPin pin;
+  encryptDataFile(pin, profile_vec, data_vec, data_filename,
+                  BLUESKY_EMBED_OFFSETS);
+
+  const std::size_t encrypted_size =
+      profile_vec.size() - BLUESKY_EMBED_OFFSETS.encrypted_file;
+  vBytes xmp_chunk;
+  if (encrypted_size > MAX_EXIF_ENCRYPTED_DATA) {
+    const std::size_t exif_end =
+        BLUESKY_EMBED_OFFSETS.encrypted_file + MAX_EXIF_ENCRYPTED_DATA;
+    xmp_chunk = buildXmpChunk(byteSpan(profile_vec).subspan(exif_end));
+    profile_vec.resize(exif_end);
+    profile_vec[VP8X_FLAGS_OFFSET] = VP8X_FLAGS_EXIF_AND_XMP;
+  }
+
+  const std::size_t exif_data_size =
+      profile_vec.size() - BLUESKY_EXIF_FIXED_PREFIX;
+  writeLe32At(
+      profile_vec, BLUESKY_EXIF_CHUNK_SIZE_OFFSET,
+      checkedU32(exif_data_size,
+                 "File Size Error: EXIF chunk data exceeds 4GB limit."));
+  writeBe32At(
+      profile_vec, BLUESKY_ARTIST_COUNT_OFFSET,
+      checkedU32(profile_vec.size() - BLUESKY_ARTIST_DATA_START,
+                 "File Size Error: Artist IFD count exceeds 4GB limit."));
+
+  vBytes output_vec;
+  // Trailing 2 covers the RIFF pad byte after each of the EXIF and XMP chunks.
+  output_vec.reserve(checkedSum(OUTPUT_OVERFLOW_ERROR, VP8X_CHUNK_END,
+                                image_vec.size(),
+                                profile_vec.size() - VP8X_CHUNK_END,
+                                xmp_chunk.size(), 2));
+  appendBytes(output_vec,
+              std::span<const Byte>(profile_vec.data(), VP8X_CHUNK_END),
+              OUTPUT_OVERFLOW_ERROR);
+  appendBytes(output_vec, byteSpan(image_vec), OUTPUT_OVERFLOW_ERROR);
+  appendBytes(output_vec, byteSpan(profile_vec).subspan(VP8X_CHUNK_END),
+              OUTPUT_OVERFLOW_ERROR);
+  appendRiffPadding(output_vec, exif_data_size);
+  if (!xmp_chunk.empty()) {
+    appendBytes(output_vec, byteSpan(xmp_chunk), OUTPUT_OVERFLOW_ERROR);
+    appendRiffPadding(output_vec, xmp_chunk.size() - 8);
+  }
+
+  finalizeRiffSize(output_vec);
+  if (output_vec.size() > MAX_BLUESKY_UPLOAD_SIZE) {
+    throw std::runtime_error("File Size Error: Output file (" +
+                             std::to_string(output_vec.size()) +
+                             " bytes) exceeds the Bluesky upload limit of "
+                             "2,000,000 bytes (~1.9MB). Try a smaller cover "
+                             "image or reduce the size of the payload (hidden "
+                             "data file).");
+  }
+  writeOutputFile(byteSpan(output_vec), pin, true);
+}
+
+void concealStandard(vBytes &image_vec, vBytes &data_vec,
+                     const std::string &data_filename, int width, int height) {
+  // The ciphertext size is fully determined by the payload and filename
+  // lengths, so size the whole output up front and reserve it once. Reserving
+  // only after encryption would reallocate and copy up to ~1 GiB of
+  // ciphertext, with both copies alive at the peak.
+  const std::size_t profile_size =
+      checkedAddSize(WEBP_PROFILE_TEMPLATE.size(),
+                     encryptedPayloadSize(data_vec.size(), data_filename.size()),
+                     OUTPUT_OVERFLOW_ERROR);
+  const std::size_t iccp_data_size = profile_size - ICCP_PAYLOAD_FILE_OFFSET;
+  const std::uint32_t iccp_data_size_u32 = checkedU32(
+      iccp_data_size, "File Size Error: ICCP chunk data exceeds 4GB limit.");
+  const std::size_t final_output_size = checkedStandardOutputSize(
+      profile_size, (iccp_data_size & 1U) != 0, image_vec.size());
+
+  vBytes profile_vec;
+  profile_vec.reserve(final_output_size);
+  profile_vec.assign(WEBP_PROFILE_TEMPLATE.begin(),
+                     WEBP_PROFILE_TEMPLATE.end());
+  setProfileDimensions(profile_vec, width, height);
+  RecoveryPin pin;
+  encryptDataFile(pin, profile_vec, data_vec, data_filename,
+                  WEBP_EMBED_OFFSETS);
+  if (profile_vec.size() != profile_size) {
+    throw std::runtime_error("Internal Error: Encrypted profile size mismatch.");
+  }
+
+  writeLe32At(profile_vec, ICCP_RIFF_CHUNK_SIZE_OFFSET, iccp_data_size_u32);
+  writeBe32At(profile_vec, ICCP_PROFILE_SIZE_OFFSET, iccp_data_size_u32);
+  appendRiffPadding(profile_vec, iccp_data_size);
+  appendBytes(profile_vec, byteSpan(image_vec), OUTPUT_OVERFLOW_ERROR);
+  finalizeRiffSize(profile_vec);
+  if (profile_vec.size() != final_output_size) {
+    throw std::runtime_error("Internal Error: Standard output size mismatch.");
+  }
+  writeOutputFile(byteSpan(profile_vec), pin, false);
+}
+
+} // namespace
+
+void concealData(vBytes &image_vec, Option option,
+                 const fs::path &data_file_path) {
+  const bool is_bluesky = (option == Option::Bluesky);
+  const std::string data_filename = data_file_path.filename().string();
+  validateDataFilename(data_file_path, data_filename);
+  const auto [width, height] = validateAndPrepareImage(image_vec);
+
+  vBytes data_vec = readFile(data_file_path);
+  // data_vec holds the secret in the clear (and, after zlibDeflate, compressed
+  // in the clear) until encryptDataFile consumes and wipes it. Guard the whole
+  // span: validateConcealSizes and the KDF's 64 MiB allocation can both throw
+  // in between, and a bare destructor would return those bytes to the heap
+  // unscrubbed.
+  SensitiveBytesGuard data_guard(data_vec);
+  // Validate the bytes from the opened file, not an earlier path-based stat;
+  // the path may have been replaced between independent observations.
+  validateConcealSizes(image_vec, data_vec.size(), is_bluesky);
+  zlibDeflate(data_vec,
+              is_bluesky ? MAX_BLUESKY_UPLOAD_SIZE : MAX_PROGRAM_FILE_SIZE);
+
+  if (is_bluesky) {
+    concealBluesky(image_vec, data_vec, data_filename, width, height);
+    return;
+  }
+
+  concealStandard(image_vec, data_vec, data_filename, width, height);
+}

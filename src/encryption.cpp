@@ -1,0 +1,968 @@
+#include "encryption.h"
+#include "io_utils.h"
+#include "pin_codec.h"
+#include <algorithm>
+#include <array>
+#include <cerrno>
+#include <charconv>
+#include <csignal>
+#include <cstdio>
+#include <cstring>
+#include <format>
+#include <poll.h>
+#include <limits>
+#include <print>
+#include <ranges>
+#include <span>
+#include <stdexcept>
+#include <string_view>
+#include <termios.h>
+#include <unistd.h>
+namespace {
+
+constexpr auto KDF_METADATA_MAGIC_V2 =
+    std::to_array<Byte>({'K', 'D', 'F', '2'});
+constexpr auto KDF_METADATA_MAGIC_V3 =
+    std::to_array<Byte>({'K', 'D', 'F', '3'});
+// KDF4: KDF3's layout, with the key derived from the 16 raw bytes of the
+// 128-bit recovery KEY instead of a PIN's decimal digits. Conceal writes only
+// KDF4; KDF2 and KDF3 (numeric PINs) are recovered.
+constexpr auto KDF_METADATA_MAGIC_V4 =
+    std::to_array<Byte>({'K', 'D', 'F', '4'});
+constexpr std::size_t KDF_MAGIC_OFFSET = 0;
+constexpr std::size_t KDF_ALG_OFFSET = 4;
+constexpr std::size_t KDF_SENTINEL_OFFSET = 5;
+constexpr std::size_t KDF_PARAMETER_ENCODING_OFFSET = 6;
+constexpr std::size_t KDF_FLAGS_OFFSET = 7;
+constexpr std::size_t KDF_SALT_OFFSET = 8;
+constexpr std::size_t KDF_NONCE_OFFSET = 24;
+constexpr std::size_t KDF_OPSLIMIT_OFFSET = 48;
+constexpr std::size_t KDF_MEMLIMIT_KIB_OFFSET = 52;
+constexpr Byte KDF_ALG_ARGON2ID13 = 1;
+constexpr Byte KDF_SENTINEL = 0xA5;
+constexpr Byte KDF_PARAMETER_ENCODING_BE32 = 1;
+constexpr Byte KDF_FLAGS_NONE = 0;
+
+// KDF2 files were created with libsodium's Argon2id "interactive" preset.
+// Record the historical numeric values here rather than consulting the
+// mutable convenience macros during recovery.  KDF3 stores and validates the
+// same numeric values in its metadata, so future library preset changes cannot
+// change the on-disk format.
+constexpr unsigned long long KDF_ARGON2ID13_OPSLIMIT = 2;
+constexpr std::uint32_t KDF_ARGON2ID13_MEMLIMIT_KIB = 64 * 1024;
+constexpr std::size_t KDF_ARGON2ID13_MEMLIMIT =
+    static_cast<std::size_t>(KDF_ARGON2ID13_MEMLIMIT_KIB) * 1024;
+static_assert(KDF_ARGON2ID13_OPSLIMIT >= crypto_pwhash_OPSLIMIT_MIN);
+static_assert(KDF_ARGON2ID13_OPSLIMIT <= crypto_pwhash_OPSLIMIT_MAX);
+static_assert(KDF_ARGON2ID13_MEMLIMIT >= crypto_pwhash_MEMLIMIT_MIN);
+static_assert(KDF_ARGON2ID13_MEMLIMIT <= crypto_pwhash_MEMLIMIT_MAX);
+static_assert(KDF_MEMLIMIT_KIB_OFFSET + sizeof(std::uint32_t) ==
+              KDF_METADATA_REGION_BYTES);
+
+// These fields must stay gap-free so writeKdfMetadata never publishes
+// uninitialized bytes.
+static_assert(KDF_MAGIC_OFFSET + KDF_METADATA_MAGIC_V3.size() ==
+              KDF_ALG_OFFSET);
+static_assert(KDF_ALG_OFFSET + 1 == KDF_SENTINEL_OFFSET);
+static_assert(KDF_SENTINEL_OFFSET + 1 == KDF_PARAMETER_ENCODING_OFFSET);
+static_assert(KDF_PARAMETER_ENCODING_OFFSET + 1 == KDF_FLAGS_OFFSET);
+static_assert(KDF_FLAGS_OFFSET + 1 == KDF_SALT_OFFSET);
+static_assert(KDF_SALT_OFFSET + crypto_pwhash_SALTBYTES == KDF_NONCE_OFFSET);
+static_assert(KDF_NONCE_OFFSET +
+                  crypto_secretstream_xchacha20poly1305_HEADERBYTES ==
+              KDF_OPSLIMIT_OFFSET);
+static_assert(KDF_OPSLIMIT_OFFSET + sizeof(std::uint32_t) ==
+              KDF_MEMLIMIT_KIB_OFFSET);
+
+constexpr const char *CORRUPT_PROFILE_ERROR =
+    "Internal Error: Corrupt profile template.";
+constexpr const char *CORRUPT_FILE_ERROR =
+    "File Recovery Error: Embedded profile is corrupt.";
+
+constexpr auto PIN_TERMINAL_SIGNALS =
+    std::to_array<int>({SIGINT, SIGTERM, SIGHUP, SIGQUIT, SIGTSTP});
+volatile std::sig_atomic_t pending_pin_signal = 0;
+volatile std::sig_atomic_t pin_signal_handlers_active = 0;
+
+extern "C" void recordPinSignal(int signal_number) noexcept {
+  if (pending_pin_signal == 0) {
+    pending_pin_signal = signal_number;
+  }
+}
+
+// While masking is active the watched signals stay blocked, and are only
+// deliverable inside waitForInput()'s ppoll(), which swaps in the original
+// mask atomically. A signal can therefore never slip in between the
+// interrupted() check and the wait and leave read(2) blocked until the next
+// keypress.
+struct TermiosGuard {
+  termios old{};
+  bool active{false};
+  sigset_t watched_signals{};
+  sigset_t original_signal_mask{};
+  std::array<struct sigaction, PIN_TERMINAL_SIGNALS.size()> old_actions{};
+  std::size_t installed_actions{0};
+
+  TermiosGuard(const TermiosGuard &) = delete;
+  TermiosGuard &operator=(const TermiosGuard &) = delete;
+
+  TermiosGuard() {
+    if (!isatty(STDIN_FILENO)) {
+      return;
+    }
+    if (tcgetattr(STDIN_FILENO, &old) != 0) {
+      return;
+    }
+    if (sigemptyset(&watched_signals) != 0) {
+      return;
+    }
+    for (const int signal_number : PIN_TERMINAL_SIGNALS) {
+      if (sigaddset(&watched_signals, signal_number) != 0) {
+        return;
+      }
+    }
+    if (sigprocmask(SIG_BLOCK, &watched_signals, &original_signal_mask) != 0) {
+      return;
+    }
+    if (pin_signal_handlers_active != 0) {
+      (void)sigprocmask(SIG_SETMASK, &original_signal_mask, nullptr);
+      return;
+    }
+    pending_pin_signal = 0;
+    struct sigaction action {};
+    action.sa_handler = recordPinSignal;
+    (void)sigemptyset(&action.sa_mask);
+    action.sa_flags = 0; // interrupt read(2), then restore outside the handler
+    for (const auto [signal_number, old_action] :
+         std::views::zip(PIN_TERMINAL_SIGNALS, old_actions)) {
+      if (sigaction(signal_number, &action, &old_action) != 0) {
+        restoreActions();
+        (void)sigprocmask(SIG_SETMASK, &original_signal_mask, nullptr);
+        return;
+      }
+      ++installed_actions;
+    }
+    pin_signal_handlers_active = 1;
+    termios newt = old;
+    const auto mask = static_cast<tcflag_t>(ICANON | ECHO);
+    newt.c_lflag &= static_cast<tcflag_t>(~mask);
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &newt) == 0) {
+      active = true;
+      return; // keep the watched signals blocked; see waitForInput()
+    }
+    pin_signal_handlers_active = 0;
+    restoreActions();
+    (void)sigprocmask(SIG_SETMASK, &original_signal_mask, nullptr);
+  }
+
+  ~TermiosGuard() {
+    (void)restore();
+  }
+
+  [[nodiscard]] bool maskingEnabled() const noexcept { return active; }
+
+  [[nodiscard]] bool interrupted() const noexcept {
+    return active && pending_pin_signal != 0;
+  }
+
+  // Waits until stdin is readable or a watched signal is handled. Returns
+  // false only on an unexpected poll failure. Without masking (stdin is not a
+  // terminal) there is nothing to wait for, and read(2) is used directly.
+  [[nodiscard]] bool waitForInput() const noexcept {
+    if (!active) {
+      return true;
+    }
+    pollfd pfd{STDIN_FILENO, POLLIN, 0};
+    const int rc = ::ppoll(&pfd, 1, nullptr, &original_signal_mask);
+    return rc >= 0 || errno == EINTR;
+  }
+
+  // The signal handler only records the signal, which is async-signal-safe.
+  // Restore terminal state and prior dispositions here, then let the caller
+  // re-raise the signal with its original semantics.
+  [[nodiscard]] int restore() noexcept {
+    if (!active && installed_actions == 0) {
+      return 0;
+    }
+    // The watched signals are still blocked from the constructor. Restore the
+    // terminal and the prior dispositions first, then the original mask, so a
+    // signal arriving now is delivered with its normal semantics to a
+    // terminal that is already back to normal.
+    if (active) {
+      (void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &old);
+      active = false;
+    }
+    const int recorded_signal = static_cast<int>(pending_pin_signal);
+    pending_pin_signal = 0;
+    pin_signal_handlers_active = 0;
+    restoreActions();
+    (void)sigprocmask(SIG_SETMASK, &original_signal_mask, nullptr);
+    return recorded_signal;
+  }
+
+private:
+  void restoreActions() noexcept {
+    while (installed_actions != 0) {
+      --installed_actions;
+      (void)sigaction(PIN_TERMINAL_SIGNALS[installed_actions],
+                      &old_actions[installed_actions], nullptr);
+    }
+  }
+};
+
+// Zeroed-on-destruction holder for a trivially-copyable secret (the derived
+// key, the secretstream state). Non-copyable so a secret can never be
+// duplicated into an unguarded object.
+template <class T> struct Sensitive {
+  static_assert(std::is_trivially_copyable_v<T>);
+  T value{};
+
+  Sensitive() = default;
+  ~Sensitive() { sodium_memzero(&value, sizeof(value)); }
+  Sensitive(const Sensitive &) = delete;
+  Sensitive &operator=(const Sensitive &) = delete;
+};
+
+constexpr std::size_t STREAM_CHUNK_SIZE = 1 * 1024 * 1024;
+constexpr std::size_t STREAM_FRAME_LEN_BYTES = 4;
+using StreamHeader =
+    std::array<Byte, crypto_secretstream_xchacha20poly1305_HEADERBYTES>;
+constexpr std::size_t MAX_FILENAME_PREFIX_BYTES =
+    1 + static_cast<std::size_t>(std::numeric_limits<Byte>::max());
+using FilenamePrefixStorage = std::array<Byte, MAX_FILENAME_PREFIX_BYTES>;
+
+struct FilenamePrefixBuffer {
+  FilenamePrefixStorage bytes;
+  std::size_t size{0};
+
+  FilenamePrefixBuffer(const FilenamePrefixBuffer &) = delete;
+  FilenamePrefixBuffer &operator=(const FilenamePrefixBuffer &) = delete;
+  FilenamePrefixBuffer() = default;
+
+  ~FilenamePrefixBuffer() {
+    if (size != 0) {
+      sodium_memzero(bytes.data(), size);
+    }
+  }
+
+  [[nodiscard]] std::span<const Byte> span() const noexcept {
+    return {bytes.data(), size};
+  }
+};
+
+[[nodiscard]] std::size_t
+computeStreamEncryptedSize(std::size_t plaintext_size) {
+  const std::size_t chunks =
+      (plaintext_size == 0) ? 1
+                            : ((plaintext_size - 1) / STREAM_CHUNK_SIZE) + 1;
+  const std::size_t per_chunk_overhead =
+      STREAM_FRAME_LEN_BYTES + crypto_secretstream_xchacha20poly1305_ABYTES;
+  constexpr std::size_t header_size = StreamHeader{}.size();
+  if (plaintext_size > std::numeric_limits<std::size_t>::max() - header_size ||
+      chunks > (std::numeric_limits<std::size_t>::max() - header_size -
+                plaintext_size) /
+                   per_chunk_overhead) {
+    throw std::runtime_error(
+        "Data File Error: Data file too large to encrypt.");
+  }
+  return header_size + plaintext_size + (chunks * per_chunk_overhead);
+}
+
+void writeFrameLen(vBytes &out, std::uint32_t frame_len) {
+  const std::size_t offset = out.size();
+  out.resize(offset + STREAM_FRAME_LEN_BYTES);
+  writeBe32At(out, offset, frame_len);
+}
+
+constexpr std::string_view ENCRYPTED_TOO_LARGE_ERROR =
+    "Data File Error: Encrypted data is too large.";
+
+// Encrypt prefix||body into output_vec (appended). On exit, body is zeroed and
+// cleared. Writing directly to output_vec eliminates a ciphertext-sized memcpy
+// that the caller would otherwise do to splice an intermediate ciphertext
+// buffer into its output.
+void encryptWithSecretStream(vBytes &output_vec, std::span<const Byte> prefix,
+                             vBytes &body, const Key &key,
+                             StreamHeader &header) {
+  Sensitive<crypto_secretstream_xchacha20poly1305_state> stream_state;
+  if (crypto_secretstream_xchacha20poly1305_init_push(
+          &stream_state.value, header.data(), key.data()) != 0) {
+    throw std::runtime_error("crypto_secretstream init_push failed.");
+  }
+  const std::size_t total =
+      checkedAddSize(prefix.size(), body.size(),
+                     "Data File Error: Data file too large to encrypt.");
+  output_vec.reserve(
+      checkedAddSize(output_vec.size(), computeStreamEncryptedSize(total),
+                     "Data File Error: Encrypted data is too large."));
+  appendBytes(output_vec, std::span<const Byte>(header),
+              ENCRYPTED_TOO_LARGE_ERROR);
+  vBytes cipher_chunk(STREAM_CHUNK_SIZE +
+                      crypto_secretstream_xchacha20poly1305_ABYTES);
+
+  // Only the first chunk ever needs a scratch buffer to join prefix + body;
+  // subsequent chunks push straight from body's storage with no extra copies.
+  vBytes staging;
+  if (!prefix.empty()) {
+    staging.reserve(STREAM_CHUNK_SIZE);
+  }
+  SensitiveBytesGuard body_guard(body);
+  SensitiveBytesGuard staging_guard(staging);
+  SensitiveBytesGuard cipher_chunk_guard(cipher_chunk);
+
+  // Store each ciphertext frame as [length][ciphertext] so recovery can
+  // validate bounds before attempting to decrypt any chunk data.
+  std::size_t logical_offset = 0;
+  while (true) {
+    const std::size_t remaining = total - logical_offset;
+    const std::size_t chunk_len = std::min(remaining, STREAM_CHUNK_SIZE);
+    const bool is_final = (logical_offset + chunk_len == total);
+    const unsigned char tag =
+        is_final ? crypto_secretstream_xchacha20poly1305_TAG_FINAL : 0;
+
+    const Byte *chunk_ptr = nullptr;
+    if (chunk_len != 0) {
+      if (logical_offset < prefix.size()) {
+        // Chunk straddles prefix and body: build it in a scratch buffer.
+        staging.resize(chunk_len);
+        const std::size_t from_prefix =
+            std::min(chunk_len, prefix.size() - logical_offset);
+        std::memcpy(staging.data(), prefix.data() + logical_offset,
+                    from_prefix);
+        const std::size_t from_body = chunk_len - from_prefix;
+        if (from_body > 0) {
+          std::memcpy(staging.data() + from_prefix, body.data(), from_body);
+        }
+        chunk_ptr = staging.data();
+      } else {
+        chunk_ptr = body.data() + (logical_offset - prefix.size());
+      }
+    }
+
+    unsigned long long clen_ull = 0;
+    if (crypto_secretstream_xchacha20poly1305_push(
+            &stream_state.value, cipher_chunk.data(), &clen_ull, chunk_ptr,
+            chunk_len, nullptr, 0, tag) != 0) {
+      throw std::runtime_error("crypto_secretstream push failed.");
+    }
+    if (clen_ull > static_cast<unsigned long long>(
+                       std::numeric_limits<std::uint32_t>::max())) {
+      throw std::runtime_error("crypto_secretstream frame too large.");
+    }
+    const auto clen = static_cast<std::uint32_t>(clen_ull);
+    writeFrameLen(output_vec, clen);
+    appendBytes(output_vec, std::span<const Byte>(cipher_chunk.data(), clen),
+                ENCRYPTED_TOO_LARGE_ERROR);
+    logical_offset += chunk_len;
+    if (is_final) {
+      break;
+    }
+  }
+  body_guard.wipe();
+  body.clear();
+}
+
+// Decrypt in place: cipher at storage[cipher_start..cipher_start+cipher_len),
+// plaintext written to storage[0..]. Plaintext write trails unread cipher by at
+// least (cipher_start + header.size() + 21*N) bytes after frame N — always
+// safe. On success, storage is resized to plaintext size. On failure, any
+// partial plaintext is wiped.
+[[nodiscard]] bool decryptWithSecretStreamInPlace(vBytes &storage,
+                                                  std::size_t cipher_start,
+                                                  std::size_t cipher_len,
+                                                  const Key &key,
+                                                  const StreamHeader &header) {
+  if (cipher_len < header.size()) {
+    return false;
+  }
+  if (!spanHasRange(storage, cipher_start, cipher_len)) {
+    return false;
+  }
+  if (!std::ranges::equal(
+          std::span<const Byte>(storage.data() + cipher_start, header.size()),
+          header)) {
+    return false;
+  }
+  Sensitive<crypto_secretstream_xchacha20poly1305_state> stream_state;
+  if (crypto_secretstream_xchacha20poly1305_init_pull(
+          &stream_state.value, header.data(), key.data()) != 0) {
+    return false;
+  }
+  vBytes plain_chunk(STREAM_CHUNK_SIZE);
+  SensitiveBytesGuard plain_chunk_guard(plain_chunk);
+
+  std::size_t cipher_pos = cipher_start + header.size();
+  const std::size_t cipher_end = cipher_start + cipher_len;
+  std::size_t plain_pos = 0;
+  bool has_final_tag = false;
+
+  auto fail = [&]() -> bool {
+    sodium_memzero(storage.data(), plain_pos);
+    return false;
+  };
+
+  while (cipher_pos < cipher_end) {
+    if (cipher_end - cipher_pos < STREAM_FRAME_LEN_BYTES) {
+      return fail();
+    }
+    const std::uint32_t frame_len = readBe32At(storage, cipher_pos);
+    cipher_pos += STREAM_FRAME_LEN_BYTES;
+    if (frame_len < crypto_secretstream_xchacha20poly1305_ABYTES ||
+        frame_len > cipher_end - cipher_pos) {
+      return fail();
+    }
+    const std::size_t max_plain_chunk =
+        static_cast<std::size_t>(frame_len) -
+        crypto_secretstream_xchacha20poly1305_ABYTES;
+    if (max_plain_chunk > plain_chunk.size()) {
+      return fail();
+    }
+    unsigned long long mlen = 0;
+    unsigned char tag = 0;
+    if (crypto_secretstream_xchacha20poly1305_pull(
+            &stream_state.value, plain_chunk.data(), &mlen, &tag,
+            storage.data() + cipher_pos, frame_len, nullptr, 0) != 0) {
+      return fail();
+    }
+    if (mlen > max_plain_chunk) {
+      return fail();
+    }
+    if (mlen > 0) {
+      std::memcpy(storage.data() + plain_pos, plain_chunk.data(), mlen);
+      plain_pos += mlen;
+    }
+    cipher_pos += frame_len;
+    if (tag == crypto_secretstream_xchacha20poly1305_TAG_FINAL) {
+      has_final_tag = true;
+      break;
+    }
+  }
+  if (!has_final_tag || cipher_pos != cipher_end) {
+    return fail();
+  }
+  // Wipe trailing ciphertext bytes before truncating.
+  if (plain_pos < storage.size()) {
+    sodium_memzero(storage.data() + plain_pos, storage.size() - plain_pos);
+  }
+  storage.resize(plain_pos);
+  return true;
+}
+
+struct KdfParameters {
+  unsigned long long opslimit;
+  std::size_t memlimit;
+  bool takes_key; // KDF4: a 128-bit KEY; KDF2/KDF3: a numeric PIN
+};
+
+constexpr KdfParameters FIXED_KDF_PARAMETERS = {
+    KDF_ARGON2ID13_OPSLIMIT, KDF_ARGON2ID13_MEMLIMIT, false};
+constexpr KdfParameters FIXED_KEY_KDF_PARAMETERS = {
+    KDF_ARGON2ID13_OPSLIMIT, KDF_ARGON2ID13_MEMLIMIT, true};
+
+// A KEY is hashed as its 16 raw bytes. An old PIN round-trips through a uint64:
+// entry is parsed as a number and the KDF input is the canonical decimal
+// encoding, so leading zeros typed at recovery ("00123") canonicalize to the
+// same PIN ("123"). The caller has already matched the secret to the image.
+void deriveKeyFromPin(Key &out_key, const RecoveryPin &pin, const Salt &salt,
+                      const KdfParameters &parameters) {
+  std::array<char, 32> pin_buf{};
+  const char *password = nullptr;
+  unsigned long long password_len = 0;
+  if (pin.isKey()) {
+    password = reinterpret_cast<const char *>(pin.key.data());
+    password_len = pin.key.size();
+  } else {
+    auto [ptr, ec] = std::to_chars(pin_buf.data(),
+                                   pin_buf.data() + pin_buf.size(),
+                                   pin.legacy_value);
+    if (ec != std::errc{}) {
+      sodium_memzero(pin_buf.data(), pin_buf.size());
+      throw std::runtime_error("KDF Error: Failed to encode recovery PIN.");
+    }
+    password = pin_buf.data();
+    password_len = static_cast<unsigned long long>(ptr - pin_buf.data());
+  }
+  const int rc = crypto_pwhash(
+      out_key.data(), out_key.size(), password, password_len, salt.data(),
+      parameters.opslimit, parameters.memlimit,
+      crypto_pwhash_ALG_ARGON2ID13);
+  sodium_memzero(pin_buf.data(), pin_buf.size());
+  if (rc != 0) {
+    throw std::runtime_error("KDF Error: Unable to derive encryption key.");
+  }
+}
+
+// Bounds-checked copy of a fixed-size field into / out of the metadata region.
+// Both directions validate against the same span before touching a byte.
+void putField(vBytes &profile_vec, std::size_t offset,
+              std::span<const Byte> field, std::string_view message) {
+  requireSpanRange(profile_vec, offset, field.size(), message);
+  std::memcpy(profile_vec.data() + offset, field.data(), field.size());
+}
+
+void getField(const vBytes &profile_vec, std::size_t offset,
+              std::span<Byte> field, std::string_view message) {
+  requireSpanRange(profile_vec, offset, field.size(), message);
+  std::memcpy(field.data(), profile_vec.data() + offset, field.size());
+}
+
+void writeKdfMetadata(vBytes &profile_vec, const ProfileOffsets &offsets,
+                      const Salt &salt, const StreamHeader &stream_header) {
+  const std::size_t base = offsets.kdf_metadata;
+  requireSpanRange(profile_vec, base, KDF_METADATA_REGION_BYTES,
+                   CORRUPT_PROFILE_ERROR);
+  putField(profile_vec, base + KDF_MAGIC_OFFSET, KDF_METADATA_MAGIC_V4,
+           CORRUPT_PROFILE_ERROR);
+  profile_vec[base + KDF_ALG_OFFSET] = KDF_ALG_ARGON2ID13;
+  profile_vec[base + KDF_SENTINEL_OFFSET] = KDF_SENTINEL;
+  profile_vec[base + KDF_PARAMETER_ENCODING_OFFSET] =
+      KDF_PARAMETER_ENCODING_BE32;
+  profile_vec[base + KDF_FLAGS_OFFSET] = KDF_FLAGS_NONE;
+  putField(profile_vec, base + KDF_SALT_OFFSET, salt, CORRUPT_PROFILE_ERROR);
+  putField(profile_vec, base + KDF_NONCE_OFFSET, stream_header,
+           CORRUPT_PROFILE_ERROR);
+  writeBe32At(profile_vec, base + KDF_OPSLIMIT_OFFSET,
+              static_cast<std::uint32_t>(KDF_ARGON2ID13_OPSLIMIT));
+  writeBe32At(profile_vec, base + KDF_MEMLIMIT_KIB_OFFSET,
+              KDF_ARGON2ID13_MEMLIMIT_KIB);
+}
+
+void readKdfMetadata(const vBytes &profile_vec, const ProfileOffsets &offsets,
+                     Salt &salt, StreamHeader &stream_header) {
+  const std::size_t base = offsets.kdf_metadata;
+  getField(profile_vec, base + KDF_SALT_OFFSET, salt, CORRUPT_FILE_ERROR);
+  getField(profile_vec, base + KDF_NONCE_OFFSET, stream_header,
+           CORRUPT_FILE_ERROR);
+}
+
+[[nodiscard]] bool metadataMagicEquals(std::span<const Byte> data,
+                                       std::size_t base_index,
+                                       std::span<const Byte> magic) {
+  return spanHasRange(data, base_index + KDF_MAGIC_OFFSET, magic.size()) &&
+         std::ranges::equal(
+             data.subspan(base_index + KDF_MAGIC_OFFSET, magic.size()), magic);
+}
+
+[[nodiscard]] KdfParameters
+readKdfParameters(std::span<const Byte> data, std::size_t base_index) {
+  requireSpanRange(data, base_index, KDF_METADATA_REGION_BYTES,
+                   CORRUPT_FILE_ERROR);
+  const bool common_fields_valid =
+      data[base_index + KDF_ALG_OFFSET] == KDF_ALG_ARGON2ID13 &&
+      data[base_index + KDF_SENTINEL_OFFSET] == KDF_SENTINEL;
+
+  if (metadataMagicEquals(data, base_index, KDF_METADATA_MAGIC_V2)) {
+    if (!common_fields_valid) {
+      throw std::runtime_error(CORRUPT_FILE_ERROR);
+    }
+    // KDF2's unused bytes were randomized, so only its defined fields can be
+    // validated.  Always use the historical literal parameters.
+    return FIXED_KDF_PARAMETERS;
+  }
+
+  const bool takes_key =
+      metadataMagicEquals(data, base_index, KDF_METADATA_MAGIC_V4);
+  if (!takes_key &&
+      !metadataMagicEquals(data, base_index, KDF_METADATA_MAGIC_V3)) {
+    throw std::runtime_error(
+        "File Decryption Error: Unsupported legacy encrypted file format. "
+        "Use an older wbpdv release to recover this file.");
+  }
+  const char version = takes_key ? '4' : '3';
+  if (!common_fields_valid ||
+      data[base_index + KDF_PARAMETER_ENCODING_OFFSET] !=
+          KDF_PARAMETER_ENCODING_BE32 ||
+      data[base_index + KDF_FLAGS_OFFSET] != KDF_FLAGS_NONE) {
+    throw std::runtime_error(std::format(
+        "File Decryption Error: Invalid or unsupported KDF{} metadata.",
+        version));
+  }
+
+  const std::uint32_t encoded_opslimit =
+      readBe32At(data, base_index + KDF_OPSLIMIT_OFFSET);
+  const std::uint32_t encoded_memlimit_kib =
+      readBe32At(data, base_index + KDF_MEMLIMIT_KIB_OFFSET);
+  if (encoded_opslimit != KDF_ARGON2ID13_OPSLIMIT ||
+      encoded_memlimit_kib != KDF_ARGON2ID13_MEMLIMIT_KIB) {
+    throw std::runtime_error(std::format(
+        "File Decryption Error: Invalid or unsupported KDF{} parameters.",
+        version));
+  }
+  return takes_key ? FIXED_KEY_KDF_PARAMETERS : FIXED_KDF_PARAMETERS;
+}
+
+// Fills `out_pin` in place with a fresh 128-bit KEY (never all zero); see
+// RecoveryPin for why no secret is returned by value.
+void generateRecoveryKey(RecoveryPin &out_pin) {
+  out_pin.clear();
+  Byte any = 0;
+  while (any == 0) {
+    randombytes_buf(out_pin.key.data(), out_pin.key.size());
+    any = 0;
+    for (const Byte b : out_pin.key) {
+      any |= b;
+    }
+  }
+  out_pin.kind = RecoveryPin::Kind::key128;
+}
+
+[[nodiscard]] std::span<const Byte>
+makeFilenamePrefix(const std::string &data_filename,
+                   FilenamePrefixBuffer &prefix_buffer) {
+  if (data_filename.empty() ||
+      data_filename.size() >
+          static_cast<std::size_t>(std::numeric_limits<Byte>::max())) {
+    throw std::runtime_error("Data File Error: Invalid data filename length.");
+  }
+
+  prefix_buffer.size = 1 + data_filename.size();
+  prefix_buffer.bytes[0] = static_cast<Byte>(data_filename.size());
+  std::memcpy(prefix_buffer.bytes.data() + 1, data_filename.data(),
+              data_filename.size());
+  return prefix_buffer.span();
+}
+
+[[nodiscard]] std::string extractFilenamePrefix(vBytes &payload) {
+  if (payload.empty() || payload[0] == 0) {
+    throw std::runtime_error(CORRUPT_FILE_ERROR);
+  }
+  const std::size_t filename_len = payload[0];
+  const std::size_t prefix_len = 1 + filename_len;
+  requireSpanRange(payload, 0, prefix_len, CORRUPT_FILE_ERROR);
+  std::string decrypted_filename(
+      reinterpret_cast<const char *>(payload.data() + 1), filename_len);
+
+  const std::size_t remaining = payload.size() - prefix_len;
+  if (remaining > 0) {
+    std::memmove(payload.data(),
+                 payload.data() + static_cast<std::ptrdiff_t>(prefix_len),
+                 remaining);
+  }
+  sodium_memzero(payload.data() + static_cast<std::ptrdiff_t>(remaining),
+                 prefix_len);
+  payload.resize(remaining);
+  return decrypted_filename;
+}
+
+// Deliberately says nothing about which rule the input broke: the shape of a
+// recovery KEY/PIN is public, but how far a given attempt got is not worth
+// echoing. Each prompt describes only the forms its image can take.
+[[nodiscard]] const char *pinFormatError(PinPrompt prompt) noexcept {
+  switch (prompt) {
+  case PinPrompt::key:
+    return "KEY Entry Error: That is not a well-formed recovery KEY.\n\n"
+           "A wbpdv KEY is 24 letters and digits, printed in groups of four "
+           "(XXXX-XXXX-XXXX-XXXX-XXXX-XXXX).\n\n"
+           "Enter it exactly as it was printed when the file was concealed.";
+  case PinPrompt::pin:
+    return "PIN Entry Error: That is not a well-formed recovery PIN.\n\n"
+           "This image was made before wbpdv 4.0 and uses a PIN of up to 20 "
+           "digits.\n\n"
+           "Enter it exactly as it was printed when the file was concealed.";
+  case PinPrompt::key_or_pin:
+    break;
+  }
+  return "KEY/PIN Entry Error: That is not a well-formed recovery KEY/PIN.\n\n"
+         "A wbpdv KEY is 24 letters and digits, printed in groups of four "
+         "(XXXX-XXXX-XXXX-XXXX-XXXX-XXXX);\n"
+         "Images made before wbpdv 4.0 use a PIN of up to 20 digits.\n\n"
+         "Enter it exactly as it was printed when the file was concealed.";
+}
+
+// A 24-character KEY whose check pair does not match its body: a typo the user
+// can find, reported before any key derivation. An image made before 4.0 takes
+// no KEY at all, so there the entry is simply not a well-formed PIN.
+[[nodiscard]] const char *pinCheckError(PinPrompt prompt) noexcept {
+  switch (prompt) {
+  case PinPrompt::key:
+    return "KEY Entry Error: That KEY has a typo: its last two characters do "
+           "not match the rest. Check each character, including upper and "
+           "lower case.";
+  case PinPrompt::pin:
+    return pinFormatError(prompt);
+  case PinPrompt::key_or_pin:
+    break;
+  }
+  return "KEY/PIN Entry Error: That KEY has a typo: its last two characters do "
+         "not match the rest. Check each character, including upper and lower "
+         "case.";
+}
+
+// One pass of interactive entry. Returns the signal that cut entry short (0 if
+// none) so the caller can re-raise it once the terminal has been restored;
+// otherwise `out_pin` holds the parsed secret, or a format error is thrown.
+[[nodiscard]] int readPinOnce(PinPrompt prompt, RecoveryPin &out_pin) {
+  // 24 characters plus 5 group dashes, with room to spare.
+  constexpr std::size_t MAX_PIN_KEYSTROKES = 32;
+  out_pin.clear();
+  std::print("\n{}: ", pinPromptWord(prompt));
+  std::fflush(stdout);
+  // A fixed stack buffer, never a heap string, wiped on every exit path.
+  std::array<char, MAX_PIN_KEYSTROKES> input{};
+  std::size_t input_len = 0;
+  // Keystrokes typed past the limit are not stored, but they are counted, so
+  // a backspace undoes the keystroke the user actually made last.
+  std::size_t dropped_keys = 0;
+  // An old PIN's leading zeros are counted, not stored, so a PIN typed with
+  // any number of them canonicalizes to the same value instead of overflowing
+  // the buffer. A KEY never starts with '0', which is not in its alphabet.
+  std::size_t leading_zeros = 0;
+  bool read_failed = false;
+  char ch{};
+  struct WipeInput {
+    std::array<char, MAX_PIN_KEYSTROKES> &input;
+    char &ch;
+    ~WipeInput() {
+      sodium_memzero(input.data(), input.size());
+      sodium_memzero(&ch, sizeof(ch));
+    }
+  } wipe_input{input, ch};
+  TermiosGuard termios_guard;
+  // Piped input is read as is. A terminal that could not be put in no-echo
+  // mode (for any reason) would show the secret in the clear, so refuse.
+  if (!termios_guard.maskingEnabled() && isatty(STDIN_FILENO) != 0) {
+    std::println("");
+    std::fflush(stdout);
+    throw std::runtime_error(std::format(
+        "Terminal Error: Unable to disable terminal echo for {0} entry. "
+        "Refusing to read the recovery {0} in the clear.",
+        pinPromptWord(prompt)));
+  }
+  while (!termios_guard.interrupted()) {
+    if (!termios_guard.waitForInput()) {
+      read_failed = true;
+      break;
+    }
+    if (termios_guard.interrupted()) {
+      break;
+    }
+    const ssize_t bytes_read = read(STDIN_FILENO, &ch, 1);
+    if (bytes_read == 0) {
+      break;
+    }
+    if (bytes_read < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+      read_failed = true;
+      break;
+    }
+    if (ch == '\n' || ch == '\r') {
+      break;
+    }
+    // Spaces and tabs are ignored, so a KEY pasted with stray whitespace
+    // still works.
+    if (ch == ' ' || ch == '\t') {
+      continue;
+    }
+    if (ch == '\b' || ch == 127) {
+      bool erased = false;
+      if (dropped_keys != 0) {
+        // Undo an over-limit keystroke; nothing was echoed for it.
+        --dropped_keys;
+      } else if (input_len != 0) {
+        input[--input_len] = '\0';
+        erased = true;
+      } else if (leading_zeros != 0) {
+        --leading_zeros;
+        erased = true;
+      }
+      if (erased && termios_guard.maskingEnabled()) {
+        std::print("\b \b");
+        std::fflush(stdout);
+      }
+      continue;
+    }
+    if (ch == '0' && input_len == 0 && dropped_keys == 0) {
+      if (leading_zeros != std::numeric_limits<std::size_t>::max()) {
+        ++leading_zeros;
+      }
+      if (termios_guard.maskingEnabled()) {
+        std::print("*");
+        std::fflush(stdout);
+      }
+      continue;
+    }
+    // Every other keystroke is kept -- including the group dash, so that a
+    // backspace removes the dash the user typed -- and so that a stray
+    // character rejects the entry instead of being silently dropped.
+    if (input_len >= input.size()) {
+      ++dropped_keys;
+      continue;
+    }
+    input[input_len++] = ch;
+    if (termios_guard.maskingEnabled()) {
+      // Dashes are layout, not secret; echoing them keeps the user's place.
+      std::print("{}", ch == '-' ? '-' : '*');
+      std::fflush(stdout);
+    }
+  }
+  const int interrupted_signal = termios_guard.restore();
+  std::println("");
+  std::fflush(stdout);
+  if (interrupted_signal != 0) {
+    return interrupted_signal;
+  }
+  if (read_failed) {
+    throw std::runtime_error(std::format(
+        "{0} Entry Error: Failed to read recovery {0}.", pinPromptWord(prompt)));
+  }
+  // Knowable mistakes are reported now, before an Argon2id run that could
+  // only end in the ambiguous "invalid KEY/PIN or file is corrupt".
+  if (dropped_keys != 0) {
+    throw std::runtime_error(pinFormatError(prompt));
+  }
+  const auto parsed = parseRecoveryPinText(
+      std::string_view(input.data(), input_len), out_pin);
+  if (parsed && leading_zeros != 0 && out_pin.isKey()) {
+    out_pin.clear();
+    throw std::runtime_error(pinFormatError(prompt));
+  }
+  if (!parsed) {
+    throw std::runtime_error(parsed.error() == PinParseError::checksum
+                                 ? pinCheckError(prompt)
+                                 : pinFormatError(prompt));
+  }
+  return 0;
+}
+
+void getPin(PinPrompt prompt, RecoveryPin &out_pin) {
+  while (true) {
+    const int interrupted_by = readPinOnce(prompt, out_pin);
+    if (interrupted_by == 0) {
+      return;
+    }
+    // The terminal state and the original signal dispositions have already been
+    // restored, so re-raising gives the signal its normal semantics: SIGINT,
+    // SIGTERM, SIGHUP and SIGQUIT end the process here and never return.
+    (void)::raise(interrupted_by);
+    // Reached only when the signal did not end the process: SIGTSTP merely
+    // stops it, and raise() returns once the job is resumed (the same is true
+    // of a disposition inherited as SIG_IGN). Take the KEY/PIN again, as a
+    // suspend/resume is not a failed entry. Each pass installs a fresh handler
+    // and clears the pending signal, so this can only repeat when a genuinely
+    // new signal arrives.
+  }
+}
+} // namespace
+
+void encryptDataFile(RecoveryPin &out_pin, vBytes &profile_vec,
+                     vBytes &data_vec, const std::string &data_filename,
+                     const ProfileOffsets &offsets) {
+  requireSpanRange(profile_vec, offsets.kdf_metadata, KDF_METADATA_REGION_BYTES,
+                   CORRUPT_PROFILE_ERROR);
+  if (offsets.encrypted_file != profile_vec.size()) {
+    throw std::runtime_error(CORRUPT_PROFILE_ERROR);
+  }
+  FilenamePrefixBuffer prefix_buffer;
+  const std::span<const Byte> prefix =
+      makeFilenamePrefix(data_filename, prefix_buffer);
+  const std::size_t prefix_len = prefix.size();
+  if (data_vec.size() > std::numeric_limits<std::size_t>::max() - prefix_len) {
+    throw std::runtime_error(
+        "Data File Error: Data file too large to encrypt.");
+  }
+  Sensitive<Key> key;
+  Salt salt{};
+  StreamHeader stream_header{};
+  // Generated straight into the caller's storage: there is never a second
+  // copy to scrub, and the caller's RecoveryPin wipes it on every path out.
+  generateRecoveryKey(out_pin);
+  randombytes_buf(salt.data(), salt.size());
+  deriveKeyFromPin(key.value, out_pin, salt, FIXED_KEY_KDF_PARAMETERS);
+  encryptWithSecretStream(profile_vec, prefix, data_vec, key.value,
+                          stream_header);
+  writeKdfMetadata(profile_vec, offsets, salt, stream_header);
+}
+
+std::optional<std::string>
+decryptDataFileWithPin(vBytes &profile_vec, const ProfileOffsets &offsets,
+                       const RecoveryPin &recovery_pin) {
+  requireSpanRange(profile_vec, offsets.kdf_metadata, KDF_METADATA_REGION_BYTES,
+                   CORRUPT_FILE_ERROR);
+  if (offsets.encrypted_file > profile_vec.size()) {
+    throw std::runtime_error(CORRUPT_FILE_ERROR);
+  }
+  const KdfParameters kdf_parameters =
+      readKdfParameters(profile_vec, offsets.kdf_metadata);
+  // Every cheap rejection comes before the 64 MiB Argon2id derivation.
+  const std::size_t ciphertext_length =
+      profile_vec.size() - offsets.encrypted_file;
+  const std::size_t min_stream_cipher_size =
+      StreamHeader{}.size() + STREAM_FRAME_LEN_BYTES +
+      crypto_secretstream_xchacha20poly1305_ABYTES;
+  if (ciphertext_length < min_stream_cipher_size) {
+    throw std::runtime_error(CORRUPT_FILE_ERROR);
+  }
+  // No secret, or a KEY for an old PIN image (or a PIN for a KEY image), is
+  // simply the wrong secret. Say so without spending an Argon2id pass on it.
+  if (recovery_pin.kind == RecoveryPin::Kind::none ||
+      recovery_pin.isKey() != kdf_parameters.takes_key) {
+    return std::nullopt;
+  }
+  Sensitive<Key> key;
+  Salt salt{};
+  StreamHeader stream_header{};
+  readKdfMetadata(profile_vec, offsets, salt, stream_header);
+  deriveKeyFromPin(key.value, recovery_pin, salt, kdf_parameters);
+  if (!decryptWithSecretStreamInPlace(profile_vec, offsets.encrypted_file,
+                                      ciphertext_length, key.value,
+                                      stream_header)) {
+    return std::nullopt;
+  }
+  return extractFilenamePrefix(profile_vec);
+}
+
+std::size_t encryptedPayloadSize(std::size_t data_size,
+                                 std::size_t filename_size) {
+  return computeStreamEncryptedSize(
+      checkedSum("Data File Error: Data file too large to encrypt.", 1,
+                 filename_size, data_size));
+}
+
+bool hasCompleteCiphertextFraming(std::span<const Byte> profile,
+                                  const ProfileOffsets &offsets) {
+  if (offsets.encrypted_file > profile.size()) {
+    return false;
+  }
+  const std::size_t end = profile.size();
+  std::size_t pos = offsets.encrypted_file;
+  if (end - pos < StreamHeader{}.size()) {
+    return false;
+  }
+  pos += StreamHeader{}.size();
+  bool has_frame = false;
+  while (pos < end) {
+    if (end - pos < STREAM_FRAME_LEN_BYTES) {
+      return false;
+    }
+    const std::uint32_t frame_len = readBe32At(profile, pos);
+    pos += STREAM_FRAME_LEN_BYTES;
+    if (frame_len < crypto_secretstream_xchacha20poly1305_ABYTES ||
+        frame_len > end - pos) {
+      return false;
+    }
+    pos += frame_len;
+    has_frame = true;
+  }
+  return has_frame;
+}
+
+std::optional<std::string> decryptDataFile(vBytes &profile_vec,
+                                           const ProfileOffsets &offsets) {
+  // Reject a truncated ciphertext or an unsupported KDF format before the
+  // prompt, rather than after the user has typed a KEY/PIN for nothing.
+  if (!hasCompleteCiphertextFraming(profile_vec, offsets)) {
+    throw std::runtime_error(CORRUPT_FILE_ERROR);
+  }
+  RecoveryPin pin;
+  getPin(recoveryPinPrompt(profile_vec, offsets), pin);
+  return decryptDataFileWithPin(profile_vec, offsets, pin);
+}
+
+PinPrompt recoveryPinPrompt(std::span<const Byte> profile,
+                            const ProfileOffsets &offsets) {
+  return readKdfParameters(profile, offsets.kdf_metadata).takes_key
+             ? PinPrompt::key
+             : PinPrompt::pin;
+}
