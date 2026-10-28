@@ -4,8 +4,8 @@
 
 There is also a [***Web edition***](https://cleasbycode.co.uk/wbpdv/app/), which you can use immediately, as a convenient alternative to downloading and compiling the CLI source code.
 
-![Demo Image](https://github.com/CleasbyCode/wbpdv/blob/main/demo_image/wbpdv_950285.webp)  
-***Demo Image -*** ***PIN: 5124158531660152785*** (*made before wbpdv 4.0, so it takes a numeric PIN*)
+![Demo Image](https://github.com/CleasbyCode/wbpdv/blob/main/demo_image/wbpdv_188189.webp)  
+***Demo Image -*** ***KEY: YT2m-hZFa-TFqa-3kC9-6amo-qyvh***
 
 Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** embeds files within ***Chunks*** of a ***WebP*** image, such as ***ICCP*** (Mastodon/Tumblr), ***EXIF*** & ***XMP*** (Bluesky). 
 
