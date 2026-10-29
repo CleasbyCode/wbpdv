@@ -11,7 +11,7 @@ Unlike the common steganography method of concealing data within the pixels of a
 
 You can conceal any file type up to ***1GiB***, although compatible sites (*listed below*) have their own ***much smaller*** size limits and other requirements.  
 
-For increased storage capacity and better security, your embedded data file is compressed with ***libdeflate/zlib*** (large files that won't compress are stored as-is) and encrypted with ***XChaCha20-Poly1305*** (***libsodium*** secretstream) under a key derived by ***Argon2id*** from a randomly generated ***128-bit recovery KEY***. The KEY is displayed once, at the end of ***conceal***, as 24 letters and digits in groups of four (*XXXX-XXXX-XXXX-XXXX-XXXX-XXXX*), and is never stored anywhere: without it the concealed file cannot be recovered. Its last two characters are a check, so most typing mistakes are reported straight away.
+Your data file is compressed with ***libdeflate/zlib***, then encrypted with ***XChaCha20-Poly1305 (libsodium secretstream)*** under a ***256-bit encryption key derived by Argon2id*** from a randomly generated ***128-bit recovery KEY***, and finally embedded in the cover image. The KEY is displayed once, at the end of conceal, as 24 letters and digits in groups of four (*XXXX-XXXX-XXXX-XXXX-XXXX-XXXX*) and is not saved by the program. Without it, the concealed file cannot be recovered. Its last two characters form a checksum, so most typing mistakes are reported straight away.
 
 Images created before ***wbpdv 4.0*** used a numeric ***recovery PIN*** instead. They remain recoverable with that PIN (*leading zeros are ignored, as before*): ***recover*** reads the image's version and prompts for a ***KEY*** or ***PIN*** to match.
 
