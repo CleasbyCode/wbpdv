@@ -9,7 +9,7 @@ There is also a [***Web edition***](https://cleasbycode.co.uk/wbpdv/app/), which
 
 ## How wbpdv conceals data
 
-Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** embeds files within ***Chunks*** of a ***WebP*** image, such as ***ICCP*** (Mastodon/Tumblr), ***EXIF*** & ***XMP*** (Bluesky).
+Unlike the common steganography method of concealing data within the pixels of a cover image ([***LSB***](https://ctf101.org/forensics/what-is-stegonagraphy/)), ***wbpdv*** embeds files within ***Chunks*** of a ***WebP*** image, such as ***iCCP*** (Mastodon/Tumblr), ***EXIF*** & ***XMP*** (Bluesky).
 
 | Conceal&nbsp;Mode | Storage Method | Compatible Platforms |
 | :---: | :---: | :---: |
