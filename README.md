@@ -13,8 +13,8 @@ Unlike the common steganography method of concealing data within the pixels of a
 
 | Conceal&nbsp;Mode | Storage Method | Compatible Platforms |
 | :---: | :---: | :---: |
-| *(no option)* | ICCP profile chunk | Mastodon, Tumblr |
-| ***-b*** | EXIF / XMP chunks | ***Bluesky*** only |
+| *(no option)* | iCCP Profile Chunk | Mastodon, Tumblr |
+| ***-b*** | EXIF / XMP Chunks | ***Bluesky*** only |
 
 You can conceal any file type up to ***1GiB***, although compatible sites (*listed below*) have their own ***much smaller*** size limits and other requirements.  
 
